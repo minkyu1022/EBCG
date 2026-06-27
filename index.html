@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Energy-Based Classifier Guidance</title>
+  <title>Energy-based Classifier Guidance</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <style>
     :root {
@@ -152,6 +152,41 @@
       padding-left: 20px;
     }
 
+    .table-wrap {
+      overflow-x: auto;
+      margin: 14px 0 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #fbfcfa;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--accent-soft);
+      font-weight: 760;
+    }
+
+    th:last-child, td:last-child {
+      border-right: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
     main {
       display: grid;
       gap: 18px;
@@ -282,6 +317,12 @@
       color: #6f2929;
     }
 
+    .cross-link {
+      border-color: #b8c3df;
+      background: #eef2ff;
+      color: #29365d;
+    }
+
     .footer-top {
       display: flex;
       flex-wrap: wrap;
@@ -353,7 +394,7 @@
 <body>
   <div class="page">
     <header>
-      <h1>Energy-Based Classifier Guidance</h1>
+      <h1>Energy-based Classifier Guidance</h1>
       <p class="subtitle">Interactive derivation reference for reward-tilted sampling.</p>
     </header>
 
@@ -385,9 +426,12 @@
     </div>
 
     <main>
+      <section id="reward-section"></section>
       <section id="flow-section"></section>
       <section id="data-section"></section>
       <section id="inference-section"></section>
+      <section id="guidance-section"></section>
+      <section id="two-section"></section>
     </main>
 
     <footer>
@@ -534,7 +578,65 @@
         <p>At fixed $t$, the SDE $dX=\nabla\log\rho_t\,d\tau+\sqrt2\,dW$ is
         overdamped Langevin with potential $-\log\rho_t$, whose unique stationary density is $\rho_t$.
         Annealing $t$ slowly keeps the sample near $\rho_t$ throughout and delivers $\rho_1$ at the end. No
-        velocity enters, so a score-only $q$ suffices. &#8718;</p>`
+        velocity enters, so a score-only $q$ suffices. &#8718;</p>`,
+      tiltVariational: md`
+        <p>$\tilde p_\lambda$ uniquely maximizes expected reward while staying close to the data:</p>
+        <div>$$\tilde p_\lambda=\arg\max_{q}\Big\{\lambda\,\mathbb{E}_{q}[r]-D_{\mathrm{KL}}\!\big(q\,\|\,p_{\text{data}}\big)\Big\}.$$</div>
+        <p>Write $\mathcal{F}[q]=\lambda\,\mathbb{E}_q[r]-\mathbb{E}_q[\log\tfrac{q}{p_{\text{data}}}]$ and add a
+        multiplier $\nu$ for $\int q=1$. Stationarity
+        $\tfrac{\delta}{\delta q}(\mathcal{F}-\nu\!\int q)=0$ gives
+        $\lambda r-\log\tfrac{q}{p_{\text{data}}}-1-\nu=0$, hence $q\propto p_{\text{data}}e^{\lambda r}$. The
+        functional is strictly concave in $q$, so this is the unique maximizer. This is the same object as
+        KL-regularized RL and diffusion alignment, where tilting a reference by $e^{r/\beta}$ uses
+        $\lambda=1/\beta$. &#8718;</p>`,
+      tiltAdditive: md`
+        <p>$\log\tilde p_\lambda=\log p_{\text{data}}+\lambda r+\text{const}$, so
+        $\nabla\log\tilde p_\lambda=s^{\text{data}}+\lambda s^p$. Because $p_{\text{data}}$ enters at power one,
+        any $x$ with $p_{\text{data}}(x)=0$ has $\tilde p_\lambda(x)=0$ for every finite $\lambda$. The reward
+        only redistributes mass inside the data support, never creates it outside. &#8718;</p>`,
+      guidanceTargets: md`
+        <p>Classifier guidance: $s_t(x)+w\nabla\log p_t(c\mid x)=\nabla\log[p_t(x)\,p_t(c\mid x)^{w}]$, target
+        $\propto p(x)p(c\mid x)^w$. CFG:
+        $(1+w)s(x\mid c)-w s(x)=s(x)+(1+w)\nabla\log p_t(c\mid x)=\nabla\log[p(x)p(c\mid x)^{1+w}]$, target
+        $\propto p(x)p(c\mid x)^{1+w}$. With $p(c\mid x)\leftrightarrow e^{r}$ and $p(x)\leftrightarrow p_{\text{data}}$,
+        both are $p_{\text{data}}e^{\lambda r}$ with $\lambda=w$ for CG and $\lambda=1+w$ for CFG. &#8718;</p>`,
+      guidanceExplicit: md`
+        <p>Comparing $\tilde s_t=s^{\text{data}}_t+\lambda s^p_t$ to
+        $s_t(x)+w\nabla\log p_t(c\mid x)$ gives $w=\lambda$ and $\nabla\log p_t(c\mid x)=s^p_t$.
+        The classifier score $s^p_t=\nabla\log\mu_t$ is supplied explicitly by the Flow-Sampling sampler as
+        $s^p_t=\widehat{\nabla r}/t$, not synthesized from a conditional-minus-unconditional pair, which makes
+        EBCG classifier guidance rather than CFG. The product decomposition rewrites the same field as
+        $s_\phi+(1+\lambda)s^p_t$ using $s_\phi=s^{\text{data}}-s^p$, recovering the CFG algebra. &#8718;</p>`,
+      guidanceManifold: md`
+        <p>EBCG raises only the reward factor to a power, $p_{\text{data}}e^{\lambda r}$, leaving $p_{\text{data}}$
+        at power one, so the support stays $\mathrm{supp}(p_{\text{data}})$ for every finite $\lambda$. A scheme
+        that sharpens by raising the data or conditional factor to a large power can place mass where the base
+        density is tiny, pushing samples off the manifold. Because EBCG's guidance is the energy score $s^p$,
+        not a power of $p_{\text{data}}$, raising $\lambda$ moves mass toward low energy inside the manifold. &#8718;</p>`,
+      scoreIsForce: md`
+        <p>The optimal score model satisfies $s_t^\star(z)=\nabla\log\rho_t(z)$. As $t\to1$, $\rho_t\to\rho$, so
+        $s_t^\star\to\nabla\log\rho=-\nabla V/k_BT=F/k_BT$. The DFF reads it off as $F^{\text{DFF}}=k_BT\,s_\theta$.
+        In our units, $s^p_1=\nabla\log\mu=\nabla r=-\nabla E/T$, delivered by the two-head model as
+        $s^p_1=\widehat{\nabla r}=\nabla r(X_1)$. &#8718;</p>`,
+      minimaTrap: md`
+        <p>If the training set is relaxed structures, the empirical distribution concentrates near minima
+        $z^\star$ of $V$. Near a minimum $V(z)\approx V(z^\star)+\tfrac12(z-z^\star)^\top H(z-z^\star)$, so
+        $\rho$ is locally Gaussian and $\nabla\log\rho(z)\approx -H(z-z^\star)/k_BT$, a harmonic restoring
+        force. The trained score approximates basin curvature, not the Boltzmann force across the ensemble, and
+        is unreliable away from minima. Reading $s^{\text{data}}$ off such a model gives this harmonic force,
+        which is why the true noise-aware Boltzmann force must come from the energy through Flow Sampling. &#8718;</p>`,
+      forceSum: md`
+        <p>By score=force, $s^{\text{data}}_t$ is the force field of $p_{\text{data},t}$ and $s^p_t$ of $\mu_t$.
+        Standalone combines them as $\tilde s_t=s^{\text{data}}_t+\lambda s^p_t$. Product learns the difference
+        $s_\phi=s^{\text{data}}_t-s^p_t$ and reconstructs the same sum as $\tilde s_t=s_\phi+(1+\lambda)s^p_t$
+        via $s^{\text{data}}=s_\phi+s^p$. Each network is a Two-for-One object for its distribution. &#8718;</p>`,
+      conservativeForce: md`
+        <p>A force is conservative when $F=\nabla\mathcal{E}$, making the work path independent. Parameterizing
+        $s^p_t=\nabla\mathcal{E}^p_\theta(x,t)$ enforces this. Two for One shows the conservative
+        parameterization is needed for stable MD with the extracted force, while an unconstrained vector score
+        destabilizes it. The same applies to EBCG's score-SDE inference, which is dynamics on $\tilde s_t$. A
+        conservative $s^p$ also makes $p$ an energy-based model with energy $\mathcal{E}^p_\theta$, matching
+        the EBM that EnFlow guides with. &#8718;</p>`
     };
 
     const CONTENT = {
@@ -545,6 +647,24 @@
           <li>$r(x)=-E(x)/T$: reward. $E$ from the MLIP, $T$ temperature.</li>
           <li>$v_t=\mathbb{E}[\dot X_t\mid X_t]$: marginal <strong>velocity</strong>. $s_t=\nabla_x\log\rho_t(x)$: marginal <strong>score</strong> of the time-$t$ marginal $\rho_t$. $u_t$: SDE <strong>drift</strong>.</li>
         </ul>`,
+      rewardTiltedTarget: {
+        intro: md`
+          <p>EBCG samples a <strong>reward-tilted</strong> version of the data distribution. Given $p_{\text{data}}$
+          and the reward $r(x)=-E(x)/T$ from the MLIP, with tilt strength $\lambda\ge 0$:</p>`,
+        blocks: [
+          { math: md`$$\tilde p_\lambda(x)\;\propto\;p_{\text{data}}(x)\,e^{\lambda r(x)}\;=\;p_{\text{data}}(x)\,\mu(x)^{\lambda},
+\qquad \mu\propto e^{r}.$$`, proof: PROOFS.tiltVariational },
+          { html: md`<p>The score is additive, the one fact inference rests on. At the clean level:</p>`, math: md`$$\nabla\log\tilde p_\lambda=\nabla\log p_{\text{data}}+\lambda\,\nabla r=s^{\text{data}}+\lambda\,s^{p}.$$`, proof: PROOFS.tiltAdditive },
+          { html: md`<p>The noise-aware version uses the Flow-Sampling score from $p$:</p>`, math: md`$$\tilde s_t=s^{\text{data}}_t+\lambda s^p_t,\qquad s^p_t=\frac{\widehat{\nabla r}}{t}.$$`, proof: PROOFS.tiltAdditive }
+        ],
+        outro: md`
+          <p>Three limits give its meaning.</p>
+          <ul>
+            <li>$\lambda=0$: $\tilde p_0=p_{\text{data}}$, plain data generation.</li>
+            <li>$\lambda\to\infty$: mass concentrates on the lowest-energy configurations <strong>within the support of</strong> $p_{\text{data}}$.</li>
+            <li>Intermediate $\lambda$: a Boltzmann-reweighted data distribution. $\lambda$ is an inverse temperature, since $e^{\lambda r}=e^{-\lambda E/T}=e^{-E/(T/\lambda)}$.</li>
+          </ul>`
+      },
       flowSampling: {
         non_gaussian: {
           title: "Flow Sampling (p) training - non-Gaussian prior",
@@ -672,6 +792,73 @@
           outro: md`<p>Run a few $\tau$-steps at each $t$ while annealing $t:0\to1$. Needs only the tilted score.
           Asymptotically exact for any prior, but slower mixing than drift SDE because there is no ballistic transport.</p>`
         }
+      },
+      guidanceConnection: {
+        intro: md`
+          <p>The reward-tilted target is exactly what classifier guidance and classifier-free guidance (CFG)
+          sample, with the reward $r$ as a log-likelihood. EBCG sits on the <strong>classifier-guidance branch</strong>,
+          because the guidance term is an explicit, noise-aware energy score, not an implicit difference of models.</p>
+          <p><strong>Classifier guidance (CG).</strong> $\tilde s_t = s_t(x) + w\,\nabla\log p_t(c\mid x)$, targeting
+          $p(x)\,p(c\mid x)^{w}$, with a separately trained noise-aware classifier $p_t(c\mid x_t)$.</p>
+          <p><strong>Classifier-free guidance (CFG).</strong> $\tilde s_t = (1+w)\,s_t(x\mid c) - w\,s_t(x)
+          = s_t(x) + (1+w)\big(s_t(x\mid c)-s_t(x)\big)$, targeting $p(x)\,p(c\mid x)^{1+w}$, with the classifier
+          implicit, $s_t(x\mid c)-s_t(x)\approx\nabla\log p_t(c\mid x)$.</p>
+          <p><strong>EBCG.</strong> Set $p(x)=p_{\text{data}}$ and let the reward play the log-classifier,
+          $\nabla\log p_t(c\mid x)\leftrightarrow s^p_t=\nabla\log\mu_t=\widehat{\nabla r}/t$. Then
+          $\tilde s_t=s^{\text{data}}_t+\lambda s^p_t$ is the classifier-guidance form with $w=\lambda$ and an
+          explicit classifier score $s^p$.</p>`,
+        caseForm: {
+          q: { html: md`<p>Standalone $q$ reads as classifier guidance:</p>`, math: md`$$\tilde s_t=s^{\text{data}}_t+\lambda\,s^p_t.$$`, proof: PROOFS.guidanceExplicit },
+          pq: { html: md`<p>Product $p\cdot q$ reads as CFG algebra. With $s_\phi=s^{\text{data}}-s^p$:</p>`, math: md`$$\tilde s_t=s^{\text{data}}_t+\lambda s^p_t=s_\phi+(1+\lambda)\,s^p_t.$$`, proof: PROOFS.guidanceExplicit }
+        },
+        blocks: [
+          { html: md`<p>CG and CFG both target the same reward-tilted family once the reward is read as a log-likelihood:</p>`, math: md`$$p(c\mid x)\leftrightarrow e^r,\qquad p(x)\leftrightarrow p_{\text{data}},\qquad \tilde p_\lambda\propto p_{\text{data}}e^{\lambda r}.$$`, proof: PROOFS.guidanceTargets },
+          { html: md`<p>The manifold behavior differs from naive over-scaling:</p>`, math: md`$$\mathrm{supp}(\tilde p_\lambda)=\mathrm{supp}(p_{\text{data}})\quad\text{for finite }\lambda.$$`, proof: PROOFS.guidanceManifold }
+        ],
+        table: md`
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th></th><th>classifier guidance</th><th>classifier-free guidance</th><th>EBCG</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>base / unconditional</td><td>$s_t(x)$</td><td>$s_t(x)$, jointly trained</td><td>$s^{\text{data}}_t$ from $q$</td></tr>
+                <tr><td>guidance term</td><td>$\nabla\log p_t(c\mid x)$, separate noise-aware classifier</td><td>implicit $s_t(x\mid c)-s_t(x)$</td><td>explicit $s^p_t=\widehat{\nabla r}/t$ from FS Boltzmann sampler</td></tr>
+                <tr><td>how obtained</td><td>train discriminative classifier on noisy data</td><td>train conditional + unconditional, subtract</td><td>train a sampler of $e^r$, read its score</td></tr>
+                <tr><td>combined score</td><td>$s_t(x)+w\,\nabla\log p_t(c\mid x)$</td><td>$(1+w)s_t(x\mid c)-w\,s_t(x)$</td><td>$s^{\text{data}}_t+\lambda s^p_t=s_\phi+(1+\lambda)s^p_t$</td></tr>
+                <tr><td>sampled target</td><td>$p(x)\,p(c\mid x)^w$</td><td>$p(x)\,p(c\mid x)^{1+w}$</td><td>$p_{\text{data}}\,e^{\lambda r}$</td></tr>
+                <tr><td>scale to $\lambda$</td><td>$\lambda=w$</td><td>$\lambda=1+w$</td><td>$\lambda$ direct</td></tr>
+                <tr><td>conditioning</td><td>discrete label $c$</td><td>discrete label $c$</td><td>continuous energy field, no label</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><em>EBCG is classifier guidance with the classifier replaced by the score of a Flow-Sampling Boltzmann sampler.</em></p>`
+      },
+      twoForOne: {
+        intro: md`
+          <p>Two for One observes that a denoising diffusion model trained on Boltzmann samples is at the same time
+          a generator and a force field. Train a score model on samples from $\rho\propto e^{-V/k_BT}$. At low
+          noise the score approximates the force:</p>`,
+        scoreBlock: { math: md`$$s_t(z)\;\xrightarrow{\,t\to 1\,}\;\nabla\log\rho(z)=-\frac{\nabla V(z)}{k_BT}=\frac{F(z)}{k_BT}.$$`, proof: PROOFS.scoreIsForce },
+        mapping: md`
+          <p>In our units with $r=-E/T$, $\mu\propto e^r$, the identity reads $s_t\to\nabla r$ at the data end,
+          the clean energy force. EBCG is two coupled Two-for-One objects. Each network is both a generator and
+          a force field for its distribution, and inference combines their forces.</p>
+          <ul>
+            <li><strong>$p$ is the energy-side object, run in reverse.</strong> EBCG has no Boltzmann samples of $\mu$, so it trains the generator from the energy by Flow Sampling, then reads the force off the model.</li>
+            <li><strong>$q$ is the data-side object,</strong> its score the data force $s^{\text{data}}_t$.</li>
+            <li><strong>The corrector residual is a difference of forces,</strong> $s_\phi=s^{\text{data}}_t-s^p_t$.</li>
+            <li><strong>The tilt is a sum of forces,</strong> $\tilde s_t=s^{\text{data}}_t+\lambda s^p_t$.</li>
+          </ul>`,
+        caseForm: {
+          q: { html: md`<p>Standalone $q$: two independent Two-for-One force fields, summed.</p>`, math: md`$$\tilde s_t=\underbrace{s^{\text{data}}_t}_{\text{data force}}+\lambda\,\underbrace{s^p_t}_{\text{MLIP force}}.$$`, proof: PROOFS.forceSum },
+          pq: { html: md`<p>Product $p\cdot q$: $q$ learns the residual force directly, and the MLIP force also supplies guidance.</p>`, math: md`$$s_\phi=\underbrace{s^{\text{data}}_t}_{\text{data force}}-\underbrace{s^p_t}_{\text{MLIP force}},
+\qquad \tilde s_t=s_\phi+(1+\lambda)\,s^p_t.$$`, proof: PROOFS.forceSum }
+        },
+        caveatBlock: { html: md`<p><strong>Minima trap.</strong> Two for One stresses that a score trained only on local minima gives a harmonic restoring force around each minimum, not the true Boltzmann force.</p>`, math: md`$$V(z)\approx V(z^\star)+\tfrac12(z-z^\star)^\top H(z-z^\star)
+\quad\Longrightarrow\quad \nabla\log\rho(z)\approx -H(z-z^\star)/k_BT.$$`, proof: PROOFS.minimaTrap },
+        inferenceBlock: { html: md`<p>The tilted score $\tilde s_t$ is a tilted force field, so score-SDE mode is coarse-grained MD on $\tilde s_t$. Parameterize the energy-side score as a conservative force:</p>`, math: md`$$s^p_t=\nabla\,\mathcal{E}^p_\theta(x,t).$$`, proof: PROOFS.conservativeForce },
+        outro: md`<p>Flow Sampling is therefore the fix for the minima trap when thermal samples are unavailable: it obtains the true noise-aware MLIP force from the energy, rather than asking the data model trained on relaxed minima to supply it.</p>`
       }
     };
 
@@ -808,6 +995,10 @@
       document.getElementById("case-title").textContent =
         `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}`;
 
+      const reward = CONTENT.rewardTiltedTarget;
+      const rewardSection = document.getElementById("reward-section");
+      rewardSection.innerHTML = md`<h2>Section 0 - Reward-tilted target distribution</h2>${reward.intro}${renderBlocks(reward.blocks)}${reward.outro}`;
+
       const flow = CONTENT.flowSampling[state.prior];
       const flowSection = document.getElementById("flow-section");
       flowSection.innerHTML = md`<h2>Section 1 - ${flow.title}</h2>${flow.intro}${renderBlocks(flow.blocks)}`;
@@ -826,10 +1017,32 @@
       const message = resolved.reason
         ? md`<div class="reason">${resolved.reason}</div>`
         : md`<div class="note">${resolved.note}</div>`;
+      const scoreSdeLink = state.inference === "score_sde"
+        ? md`<div class="note cross-link">Score SDE is coarse-grained MD on the tilted force field $\tilde s_t$; see Section 5.</div>`
+        : "";
       const body = resolved.status === "infeasible"
-        ? message
-        : md`${statusHtml}${message}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"]])}${renderBlocks(inference.blocks)}${inference.outro}`;
+        ? md`${message}${scoreSdeLink}`
+        : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"]])}${renderBlocks(inference.blocks)}${inference.outro}`;
       inferenceSection.innerHTML = md`<h2>Section 3 - ${inference.title}</h2>${resolved.status === "infeasible" ? statusHtml : ""}${body}`;
+
+      const guidance = CONTENT.guidanceConnection;
+      const guidanceSection = document.getElementById("guidance-section");
+      guidanceSection.innerHTML = md`
+        <h2>Section 4 - Connection to classifier guidance and CFG</h2>
+        ${guidance.intro}
+        ${renderBlocks([guidance.caseForm[state.data_dist]])}
+        ${renderBlocks(guidance.blocks)}
+        ${guidance.table}`;
+
+      const two = CONTENT.twoForOne;
+      const twoSection = document.getElementById("two-section");
+      twoSection.innerHTML = md`
+        <h2>Section 5 - Connection to Two for One (score = force)</h2>
+        ${two.intro}
+        ${renderBlocks([two.scoreBlock])}
+        ${two.mapping}
+        ${renderBlocks([two.caseForm[state.data_dist], two.caveatBlock, two.inferenceBlock])}
+        ${two.outro}`;
 
       const notation = document.getElementById("notation");
       notation.innerHTML = md`
@@ -843,7 +1056,7 @@
           <li>Reward-tilted target: $\rho_1\propto p_{\text{data}}\,\mu^{\lambda}\propto p_{\text{data}}\,e^{\lambda r}$, strength $\lambda\ge 0$.</li>
         </ul>`;
 
-      for (const node of [document.getElementById("overview"), flowSection, dataSection, inferenceSection, notation, document.querySelector("header")]) {
+      for (const node of [document.getElementById("overview"), rewardSection, flowSection, dataSection, inferenceSection, guidanceSection, twoSection, notation, document.querySelector("header")]) {
         renderMath(node);
       }
     }
