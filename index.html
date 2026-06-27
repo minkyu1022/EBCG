@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EBCG - Energy-Based Classifier Guidance</title>
+  <title>Energy-Based Classifier Guidance</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <style>
     :root {
@@ -137,6 +137,19 @@
       margin: 0;
       font-size: 1.03rem;
       font-weight: 760;
+    }
+
+    .overview {
+      margin: 18px 0 18px;
+    }
+
+    .overview p:last-child {
+      margin-bottom: 0;
+    }
+
+    .overview-list {
+      margin: 0 0 13px;
+      padding-left: 20px;
     }
 
     main {
@@ -340,9 +353,28 @@
 <body>
   <div class="page">
     <header>
-      <h1>EBCG - Energy-Based Classifier Guidance</h1>
-      <p class="subtitle">Reward-tilted sampling: $p_{\text{data}}\cdot\mu^\lambda$.</p>
+      <h1>Energy-Based Classifier Guidance</h1>
+      <p class="subtitle">Interactive derivation reference for reward-tilted sampling.</p>
     </header>
+
+    <section class="overview" id="overview">
+      <h2>Setup</h2>
+      <ul class="overview-list">
+        <li>Linear schedule: $\alpha_t=t$, $\sigma_t=1-t$, and $X_t=tX_1+(1-t)X_0$.</li>
+        <li>Flow-Sampling diffusion: assume $g_t^2=2\gamma t$, so $\dfrac{g_t^2}{2\alpha_t}=\gamma$.</li>
+        <li>Prior: $X_0\sim\pi$. Boltzmann model: $\mu\propto e^r$ with reward $r(x)=-E(x)/T$.</li>
+        <li>Data model: $q$ fits $p_{\text{data}}$ directly, or $p\cdot q$ fits the residual so $p_\theta q_\phi=p_{\text{data}}$.</li>
+      </ul>
+      <p>The reward-tilted target distribution is
+      $\rho_1^\lambda\propto p_{\text{data}}\,\mu^\lambda\propto p_{\text{data}}\,e^{\lambda r}$.
+      Its pathwise tilted score is $\tilde s_t=s_t^{\text{data}}+\lambda s_t^p$.</p>
+      <p>Connection to classifier guidance: standard diffusion guidance adds a classifier score
+      $\nabla_x\log p(y\mid x_t)$ to a base score. Here the Boltzmann sampler $p$ supplies the guidance
+      score $s_t^p$ from energy/reward, while $q$ supplies the data velocity or score. Connection to
+      classifier-free guidance: CFG combines conditional and unconditional model outputs; EBCG similarly
+      combines a data model and an energy-guidance model, but the guidance term is explicit
+      $\lambda s_t^p$ and targets $p_{\text{data}}\mu^\lambda$.</p>
+    </section>
 
     <nav class="controls" aria-label="case controls">
       <div class="control-grid" id="controls"></div>
@@ -811,7 +843,7 @@
           <li>Reward-tilted target: $\rho_1\propto p_{\text{data}}\,\mu^{\lambda}\propto p_{\text{data}}\,e^{\lambda r}$, strength $\lambda\ge 0$.</li>
         </ul>`;
 
-      for (const node of [flowSection, dataSection, inferenceSection, notation, document.querySelector("header")]) {
+      for (const node of [document.getElementById("overview"), flowSection, dataSection, inferenceSection, notation, document.querySelector("header")]) {
         renderMath(node);
       }
     }
