@@ -462,8 +462,7 @@
       ],
       fit: [
         ["flow_matching", "flow matching"],
-        ["stochastic_interpolant", "stoch. interpolant"],
-        ["score_matching", "score matching"]
+        ["stochastic_interpolant", "stoch. interpolant"]
       ],
       inference: [
         ["velocity_ode", "velocity ODE"],
@@ -484,8 +483,7 @@
       data_dist: { q: "q", pq: "p·q" },
       fit: {
         flow_matching: "flow matching",
-        stochastic_interpolant: "SI",
-        score_matching: "score matching"
+        stochastic_interpolant: "SI"
       },
       inference: {
         velocity_ode: "velocity ODE",
@@ -534,19 +532,28 @@
         $s_t^p=\widehat{\nabla r}/t$. &#8718;</p>`,
       gaussianOneHead: md`
         <p>For $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$, Tweedie gives
-        $\mathbb{E}[tX_1\mid X_t]=x+(1-t)^2\nabla\log p_t(x)$, i.e.
-        $s_t=\nabla\log p_t=\dfrac{t\,\hat x_1-x}{(1-t)^2}$. With $v_t=\dfrac{\hat x_1-x}{1-t}$, the drift
-        $u_t=v_t+\tfrac{g_t^2}{2}s_t=\Big(\tfrac{1}{1-t}+\tfrac{g_t^2 t}{2(1-t)^2}\Big)\hat x_1
-        -\Big(\tfrac{1}{1-t}+\tfrac{g_t^2}{2(1-t)^2}\Big)x$ is affine in $\hat x_1$ with nonzero
-        coefficient, hence invertible: one output $u_t$ determines $\hat x_1$, then $v_t$ and $s_t$. For a
-        <strong>non-Gaussian</strong> prior the conditional $X_t\mid X_1$ is not Gaussian, the Tweedie identity for $s_t$
-        fails, and $u_t$ alone no longer determines $s_t$. That is why the non-Gaussian case needs the explicit
-        $\widehat{\nabla r}$ head. &#8718;</p>`,
+        $s_t=\dfrac{t\,\hat x_1-x}{(1-t)^2}$ and $v_t=\dfrac{\hat x_1-x}{1-t}$. Eliminating $\hat x_1$
+        gives the Gaussian velocity-score relation $s_t=\dfrac{t v_t-x}{1-t}$. With $g_t^2=2\gamma t$,
+        the drift identity becomes
+        $u_t=v_t+\gamma t\,s_t=v_t+\gamma t\,\dfrac{t v_t-x}{1-t}$. Therefore
+        $(1-t)u_t=(1-t+\gamma t^2)v_t-\gamma t x$, so
+        $v_t=\dfrac{(1-t)u_t+\gamma t x}{1-t+\gamma t^2}$ and
+        $s_t=\dfrac{t u_t-x}{1-t+\gamma t^2}$. One output $u_t$ determines both $v_t$ and $s_t$. For a
+        <strong>non-Gaussian</strong> prior this Gaussian relation fails, and $u_t$ alone no longer determines
+        $s_t$. That is why the non-Gaussian case needs the explicit $\widehat{\nabla r}$ head. &#8718;</p>`,
       fmPrior: md`
         <p>The target $X_1-X_0$ depends only on the sampled endpoints, never on
         the shape of $\pi$. Hence the loss and its optimum $v_t^{\text{data}}=\mathbb{E}[X_1-X_0\mid X_t]$ are
         identical across priors. The product version merely shifts the regression target by the fixed
         $v_t^p(X_t,t)$, giving $\delta_\phi^\star=v_t^{\text{data}}-v_t^p$. &#8718;</p>`,
+      fmProductScore: md`
+        <p>For a Gaussian prior with linear interpolation, $s_t=\dfrac{t v_t-x}{1-t}$, hence
+        $s_t^{\text{data}}-s_t^p=\dfrac{t}{1-t}(v_t^{\text{data}}-v_t^p)$. If
+        $s_t^q=s_t^{\text{data}}-s_t^p$ is the product residual score from $p\cdot q=p_{\text{data}}$, then
+        $v_t^{\text{data}}=v_t^p+\dfrac{1-t}{t}s_t^q$. Targeting this assembled velocity to $X_1-X_0$
+        therefore learns the same data velocity as flow matching while outputting the residual score. If the
+        residual score is instead defined with the opposite sign, $s_t^q=s_t^p-s_t^{\text{data}}$, the plus sign
+        becomes a minus sign. &#8718;</p>`,
       dsmGaussian: md`
         <p>With $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$,
         $\nabla_{X_t}\log p_t(X_t\mid X_1)=-\dfrac{X_t-tX_1}{(1-t)^2}=\dfrac{tX_1-X_t}{(1-t)^2}$, and the DSM
@@ -688,12 +695,10 @@
             target</strong> (linear schedule, after substituting $g_t^2=2\gamma t$) is:</p>`,
           blocks: [
             { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
-            { html: md`<p>With a standard Gaussian prior, Tweedie's formula makes the score an affine function of the denoiser,
-            so a single drift output determines everything. With $X_0\sim\mathcal N(0,I)$ and the linear schedule,
-            $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2 I)$:</p>`, math: md`$$s_t^p=\frac{t\,\hat x_1^p-x}{(1-t)^2},\qquad v_t^p=\frac{\hat x_1^p-x}{1-t}.$$`, proof: PROOFS.gaussianOneHead },
-            { html: md`<p>Both are functions of the single denoiser $\hat x_1^p$. Equivalently, the single Flow-Sampling drift
-            output $u^\theta$ is an invertible affine function of $\hat x_1^p$, so one head recovers
-            $\hat x_1^p$, then $v_t^p$ and $s_t^p$. A single loss is enough:</p>`, math: md`$$\mathcal{L}=\mathbb{E}\|u^\theta(X_t,t)-u_{t\mid1}\|^2.$$`, proof: PROOFS.gaussianOneHead }
+            { html: md`<p>With a standard Gaussian prior, one head directly learns the Flow-Sampling drift $u_t^p$.
+            With $D_t=1-t+\gamma t^2$, the velocity and score are read from that drift:</p>`, math: md`$$s_t^p(x)=\frac{t\,u_t^p(x,t)-x}{D_t},\qquad
+v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`, proof: PROOFS.gaussianOneHead },
+            { html: md`<p>A single loss is enough:</p>`, math: md`$$\mathcal{L}=\mathbb{E}\|u^\theta(X_t,t)-u_{t\mid1}\|^2.$$`, proof: PROOFS.gaussianOneHead }
           ]
         }
       },
@@ -709,30 +714,24 @@
           for any prior. It exposes the data velocity but <strong>no score</strong>.</p>`
         },
         flow_matching__pq: {
-          title: "Data-fitting (p·q) training - flow matching residual",
-          intro: md`<p>$q$ carries only the residual against $p$, where $p_\theta q_\phi=p_{\text{data}}$. Flow matching exposes <strong>velocity only</strong>.</p>`,
+          title: "Data-fitting (p·q) training - Gaussian flow matching via residual score",
+          intro: md`<p>$q$ carries only the residual against $p$, where $p_\theta q_\phi=p_{\text{data}}$. With a Gaussian prior, it is cleaner to output the residual score
+          $s_t^q=s_t^{\text{data}}-s_t^p$ and assemble the data velocity.</p>`,
+          blocks: [
+            { html: md`<p>Product $p\cdot q$, residual score output $s_t^q$:</p>`, math: md`$$v_t^{\text{data}}(x)=v_t^p(x)+\frac{1-t}{t}\,s_t^q(x,t),
+\qquad s_t^q=s_t^{\text{data}}-s_t^p.$$`, proof: PROOFS.fmProductScore },
+            { html: md`<p>Target the assembled velocity to the flow-matching target:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\left\|v_t^p(X_t,t)+\frac{1-t}{t}s_t^q(X_t,t)-(X_1-X_0)\right\|^2.$$`, proof: PROOFS.fmProductScore }
+          ],
+          outro: md`<p>The plus sign follows from defining the product residual score as $s_t^q=s_t^{\text{data}}-s_t^p$. With the opposite sign convention, the displayed plus becomes a minus.</p>`
+        },
+        flow_matching__pq_non_gaussian: {
+          title: "Data-fitting (p·q) training - non-Gaussian flow matching residual",
+          intro: md`<p>$q$ carries only the residual against $p$, where $p_\theta q_\phi=p_{\text{data}}$. For a non-Gaussian prior, there is no closed-form score-to-velocity conversion, so flow matching keeps a velocity residual.</p>`,
           blocks: [
             { html: md`<p>Product $p\cdot q$, residual velocity $\delta_\phi$:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\big\|v_t^p(X_t,t)+\delta_\phi(X_t,t)-(X_1-X_0)\big\|^2,
 \qquad \delta_\phi^\star=v_t^{\text{data}}-v_t^p,\quad v_t^{\text{data}}=v_t^p+\delta_\phi.$$`, proof: PROOFS.fmPrior }
           ],
-          outro: md`<p>The product variant regresses the same network onto the residual target obtained by subtracting $p$'s velocity $v_t^p$.</p>`
-        },
-        score_matching__q: {
-          title: "Data-fitting (q) training - score matching",
-          intro: md`<p>Denoising score matching exposes <strong>score only</strong>. Network output: $s_\phi(x,t)$.</p>`,
-          blocks: [
-            { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\big\|s_\phi(X_t,t)-\nabla_{X_t}\log p_t(X_t\mid X_1,X_0)\big\|^2,
-\qquad s_\phi^\star=\nabla\log p_{\text{data},t}=s_t^{\text{data}}.$$`, proof: PROOFS.dsmGaussian }
-          ]
-        },
-        score_matching__pq: {
-          title: "Data-fitting (p·q) training - score matching residual",
-          intro: md`<p>Denoising score matching exposes <strong>score only</strong>. Product mode trains the residual score against $p$.</p>`,
-          blocks: [
-            { html: md`<p>Product $p\cdot q$, residual score:</p>`, math: md`$$s_\phi^\star=s_t^{\text{data}}-s_t^p=\nabla\log\frac{p_{\text{data},t}}{\mu_t},
-\qquad s_t^{\text{data}}=s_t^p+s_\phi.$$`, proof: PROOFS.dsmGaussian },
-            { html: md`<p>Implement the product residual by regressing $s_\phi$ onto:</p>`, math: md`$$\nabla_{X_t}\log p_t(X_t\mid X_1,X_0)-s_t^p(X_t,t).$$`, proof: PROOFS.dsmGaussian }
-          ]
+          outro: md`<p>The residual-score form is Gaussian-only because it relies on $s_t=\dfrac{t v_t-x}{1-t}$.</p>`
         },
         stochastic_interpolant__q: {
           title: "Data-fitting (q) training - stochastic interpolant",
@@ -864,7 +863,7 @@
 
     function resolveInference(prior, data_dist, fit, mode) {
       let qV = (fit === "flow_matching" || fit === "stochastic_interpolant");
-      let qS = (fit === "score_matching" || fit === "stochastic_interpolant");
+      let qS = (fit === "stochastic_interpolant");
 
       if (prior === "gaussian" && (qV || qS)) { qV = true; qS = true; }
 
@@ -1003,11 +1002,13 @@
       const flowSection = document.getElementById("flow-section");
       flowSection.innerHTML = md`<h2>Section 1 - ${flow.title}</h2>${flow.intro}${renderBlocks(flow.blocks)}`;
 
-      const data = CONTENT.dataFit[`${state.fit}__${state.data_dist}`];
+      let dataKey = `${state.fit}__${state.data_dist}`;
+      if (state.prior === "non_gaussian" && dataKey === "flow_matching__pq") {
+        dataKey = "flow_matching__pq_non_gaussian";
+      }
+      const data = CONTENT.dataFit[dataKey];
       const dataSection = document.getElementById("data-section");
-      const caveat = (state.prior === "non_gaussian" && state.fit === "score_matching")
-        ? md`<div class="caveat"><strong>Prior caveat.</strong> A deterministic interpolant has no intermediate conditional density given both endpoints, so DSM needs the conditional score of $X_t\mid X_1$ after marginalizing the prior. For a Gaussian prior this is closed form, $\nabla_{X_t}\log p_t(X_t\mid X_1)=\dfrac{tX_1-X_t}{(1-t)^2}$. For a non-Gaussian prior it requires a tractable prior score $\nabla\log\pi$ (for example, a harmonic prior) or added latent noise. If neither is available, use the stochastic interpolant instead, which manufactures a tractable noise channel.</div>`
-        : "";
+      const caveat = "";
       dataSection.innerHTML = md`<h2>Section 2 - ${data.title}</h2>${caveat}${data.intro}${renderBlocks(data.blocks)}${data.outro || ""}`;
 
       const resolved = resolveInference(state.prior, state.data_dist, state.fit, state.inference);
