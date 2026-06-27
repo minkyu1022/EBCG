@@ -554,6 +554,12 @@
         therefore learns the same data velocity as flow matching while outputting the residual score. If the
         residual score is instead defined with the opposite sign, $s_t^q=s_t^p-s_t^{\text{data}}$, the plus sign
         becomes a minus sign. &#8718;</p>`,
+      pqGaussianInference: md`
+        <p>For Gaussian prior and $p\cdot q=p_{\text{data}}$, the product score is
+        $s_t^q=s_t^{\text{data}}-s_t^p=\nabla\log q_t$. The Gaussian bridge relation
+        $s_t=\dfrac{t v_t-x}{1-t}$ gives
+        $v_t^{\text{data}}=v_t^p+\dfrac{1-t}{t}s_t^q$. Substituting this into each inference equation makes
+        the product correction explicit. &#8718;</p>`,
       dsmGaussian: md`
         <p>With $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$,
         $\nabla_{X_t}\log p_t(X_t\mid X_1)=-\dfrac{X_t-tX_1}{(1-t)^2}=\dfrac{tX_1-X_t}{(1-t)^2}$, and the DSM
@@ -763,7 +769,18 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
 \qquad s_t^p=\frac{\widehat{\nabla r}}{t}.$$`, proof: PROOFS.tiltedScore }
         ],
         pqBlock: { html: md`<p>For $p\cdot q$, substitute $s_t^{\text{data}}=s_t^p+s_\phi$:</p>`, math: md`$$\tilde s_t=(1+\lambda)s_t^p+s_\phi.$$`, proof: PROOFS.tiltedScore },
+        pqGaussianBlock: { html: md`<p>For Gaussian prior with $p\cdot q=p_{\text{data}}$, the flow-matching product model can output $q$'s score $s_t^q=\nabla\log q_t=s_t^{\text{data}}-s_t^p$. Then:</p>`, math: md`$$s_t^{\text{data}}=s_t^p+s_t^q,\qquad
+v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
+\tilde s_t=(1+\lambda)s_t^p+s_t^q.$$`, proof: PROOFS.pqGaussianInference },
         qBlock: { html: md`<p>For standalone $q$, use the data model score directly:</p>`, math: md`$$\tilde s_t=s_t^{\text{data}}+\lambda s_t^p.$$`, proof: PROOFS.tiltedScore },
+        velocity_ode_pq_gaussian: {
+          math: md`$$\frac{dX}{dt}=v_t^p(X)+\frac{1-t}{t}s_t^q(X,t)+\lambda\,\gamma\,\widehat{\nabla r}(X,t),\qquad t:0\to1.$$`,
+          proof: PROOFS.pqGaussianInference
+        },
+        drift_sde_pq_gaussian: {
+          math: md`$$dX=\Big[v_t^p(X)+\frac{1-t}{t}s_t^q(X,t)+\frac{\tilde g_t^2}{2}\big((1+\lambda)s_t^p(X)+s_t^q(X,t)\big)\Big]dt+\tilde g_t\,dW.$$`,
+          proof: PROOFS.pqGaussianInference
+        },
         velocity_ode: {
           title: "Tilted inference - velocity ODE",
           blocks: [
@@ -1021,9 +1038,21 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
       const scoreSdeLink = state.inference === "score_sde"
         ? md`<div class="note cross-link">Score SDE is coarse-grained MD on the tilted force field $\tilde s_t$; see Section 5.</div>`
         : "";
+      const usePqGaussianScore = state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching";
+      const assemblyBlock = usePqGaussianScore
+        ? CONTENT.inference.pqGaussianBlock
+        : CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"];
+      const modeBlocks = [];
+      if (usePqGaussianScore && state.inference === "velocity_ode") {
+        modeBlocks.push(CONTENT.inference.velocity_ode_pq_gaussian);
+      } else if (usePqGaussianScore && state.inference === "drift_sde") {
+        modeBlocks.push(CONTENT.inference.drift_sde_pq_gaussian);
+      } else {
+        modeBlocks.push(...inference.blocks);
+      }
       const body = resolved.status === "infeasible"
         ? md`${message}${scoreSdeLink}`
-        : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"]])}${renderBlocks(inference.blocks)}${inference.outro}`;
+        : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([assemblyBlock])}${renderBlocks(modeBlocks)}${inference.outro}`;
       inferenceSection.innerHTML = md`<h2>Section 3 - ${inference.title}</h2>${resolved.status === "infeasible" ? statusHtml : ""}${body}`;
 
       const guidance = CONTENT.guidanceConnection;
