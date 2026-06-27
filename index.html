@@ -624,7 +624,9 @@
         optimum equals the marginal score $\nabla\log p_{\text{data},t}$ by Vincent's identity. &#8718;</p>`,
       siScore: md`
         <p>Conditioned on the endpoints, $X_t\mid(X_0,X_1)\sim\mathcal N\big(I_{01},\gamma_t^2 I\big)$ with
-        $I_{01}=tX_1+(1-t)X_0$. Tweedie on this Gaussian channel gives
+        $I_{01}=tX_1+(1-t)X_0$. AdsorbGen's SI-denoiser training uses
+        $\gamma_t=\sigma\sqrt{\max(t(1-t),\varepsilon)}$ with $\sigma=0.1$ and $\varepsilon=10^{-5}$.
+        Tweedie on this Gaussian channel gives
         $\mathbb{E}[I_{01}\mid X_t]=X_t+\gamma_t^2\nabla\log p_t(X_t)$, so
         $\mathbb{E}[\gamma_t Z\mid X_t]=X_t-\mathbb{E}[I_{01}\mid X_t]=-\gamma_t^2\nabla\log p_t(X_t)$, hence
         $\nabla\log p_t=-\dfrac{\mathbb{E}[Z\mid X_t]}{\gamma_t}=-\dfrac{z_\phi}{\gamma_t}$. This needs no
@@ -800,7 +802,9 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
         stochastic_interpolant__q: {
           title: "Data-fitting (q) training - stochastic interpolant",
           intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Add latent Gaussian noise to the interpolant:
-          $X_t=t X_1+(1-t)X_0+\gamma_t Z$, $Z\sim\mathcal N(0,I)$, with $\gamma_0=\gamma_1=0$.
+          $X_t=t X_1+(1-t)X_0+\gamma_t Z$, $Z\sim\mathcal N(0,I)$ on movable atoms. To match the AdsorbGen SI-denoiser runs,
+          use $\gamma_t=\sigma\sqrt{\max(t(1-t),\varepsilon)}$ with $\sigma=0.1$ and $\varepsilon=10^{-5}$, and
+          $\dot\gamma_t=\sigma(1-2t)/(2\sqrt{\max(t(1-t),\varepsilon)})$.
           Two outputs: the velocity $v_\phi$ and the denoiser $z_\phi$.</p>`,
           blocks: [
             { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity}}
@@ -811,7 +815,9 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
         },
         stochastic_interpolant__pq: {
           title: "Data-fitting (p·q) training - stochastic interpolant residual",
-          intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Product mode regresses both currencies as residuals against $p$.</p>`,
+          intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Product mode regresses both currencies as residuals against $p$. Use the AdsorbGen schedule
+          $\gamma_t=0.1\sqrt{\max(t(1-t),10^{-5})}$ and
+          $\dot\gamma_t=0.1(1-2t)/(2\sqrt{\max(t(1-t),10^{-5})})$.</p>`,
           blocks: [
             { html: md`<p>Velocity residual against $v_t^p$ and denoiser target:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_t^p(X_t,t)+v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity residual}}
 +\underbrace{\mathbb{E}\big\|z_\phi(X_t,t)-Z\big\|^2}_{\text{denoiser}},$$`, proof: PROOFS.siScore },
@@ -1092,16 +1098,18 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       }
       if (state.fit === "stochastic_interpolant" && state.data_dist === "q") {
         return [
-          "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$.",
-          "Train $v_\\phi$ to $X_1-X_0+\\dot\\gamma_t Z$ and train $z_\\phi$ to $Z$.",
+          "Use AdsorbGen's SI schedule $\\gamma_t=0.1\\sqrt{\\max(t(1-t),10^{-5})}$ and $\\dot\\gamma_t=0.1(1-2t)/(2\\sqrt{\\max(t(1-t),10^{-5})})$.",
+          "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$ on movable atoms.",
+          "Train $v_\\phi$ to $X_1-X_0+\\dot\\gamma_t Z$ and train $z_\\phi$ to the injected noise $Z$.",
           "Use $v_t^{\\text{data}}=v_\\phi$ and $s_t^{\\text{data}}=-z_\\phi/\\gamma_t$."
         ];
       }
       return [
-        "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$.",
+        "Use AdsorbGen's SI schedule $\\gamma_t=0.1\\sqrt{\\max(t(1-t),10^{-5})}$ and $\\dot\\gamma_t=0.1(1-2t)/(2\\sqrt{\\max(t(1-t),10^{-5})})$.",
+        "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$ on movable atoms.",
         "Use the trained $p$ model to compute $v_t^p$ and $s_t^p$.",
-        "Train $v_\\phi$ as the velocity residual so $v_t^{\\text{data}}=v_t^p+v_\\phi$.",
-        "Train $z_\\phi$ to $Z$ and use residual score $s_t^q=-z_\\phi/\\gamma_t$, so $s_t^{\\text{data}}=s_t^p+s_t^q$."
+        "Train $v_\\phi$ as the velocity residual against $X_1-X_0+\\dot\\gamma_t Z$, so $v_t^{\\text{data}}=v_t^p+v_\\phi$.",
+        "Train $z_\\phi$ to the injected noise $Z$ and use residual score $s_t^q=-z_\\phi/\\gamma_t$, so $s_t^{\\text{data}}=s_t^p+s_t^q$."
       ];
     }
 
