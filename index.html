@@ -909,7 +909,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       },
       twoForOne: {
         intro: md`
-          <p>Two for One observes that a denoising diffusion model trained on Boltzmann samples is at the same time
+          <p><a href="https://arxiv.org/abs/2302.00600">"Two for One" paper</a> observes that a denoising diffusion model trained on Boltzmann samples is at the same time
           a generator and a force field. Train a score model on samples from $\rho\propto e^{-V/k_BT}$. At low
           noise the score approximates the force:</p>`,
         scoreBlock: { math: md`$$s_t(z)\;\xrightarrow{\,t\to 1\,}\;\nabla\log\rho(z)=-\frac{\nabla V(z)}{k_BT}=\frac{F(z)}{k_BT}.$$`, proof: PROOFS.scoreIsForce },
@@ -1268,7 +1268,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       const two = CONTENT.twoForOne;
       const twoSection = document.getElementById("two-section");
       twoSection.innerHTML = md`
-        <h2>Section 5 - Connection to Two for One (score = force)</h2>
+        <h2>Section 5 - Connection to "Two for One" paper (score = force)</h2>
         ${two.intro}
         ${renderBlocks([two.scoreBlock])}
         ${two.mapping}
