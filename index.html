@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EBCG - Energy-Based Classifier Guidance</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <style>
+    :root {
+      --bg: #f7f8f5;
+      --paper: #ffffff;
+      --ink: #18201d;
+      --muted: #5f6b64;
+      --line: #dce2dc;
+      --line-strong: #b8c3ba;
+      --accent: #2f6f5e;
+      --accent-ink: #ffffff;
+      --accent-soft: #e6f1ed;
+      --amber: #a56800;
+      --amber-bg: #fff1d1;
+      --green: #1f7a4d;
+      --green-bg: #dff3e8;
+      --red: #9a3d3d;
+      --red-bg: #f6e4e2;
+      --gray: #59645f;
+      --gray-bg: #ebeeeb;
+      --shadow: 0 18px 45px rgba(19, 31, 25, 0.08);
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.58;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button, input, summary {
+      font: inherit;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 42px;
+    }
+
+    header {
+      padding: 18px 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 4.1rem);
+      line-height: 1.02;
+      letter-spacing: 0;
+      font-weight: 760;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      margin: 0 -20px;
+      padding: 12px 20px;
+      background: rgba(247, 248, 245, 0.95);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+
+    .control-grid {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(92px, 130px) 1fr;
+      gap: 9px 12px;
+      align-items: center;
+    }
+
+    .axis-label {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .choice {
+      min-height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 7px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .choice:hover {
+      border-color: var(--accent);
+    }
+
+    .choice[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: var(--accent);
+    }
+
+    .case-banner {
+      margin: 22px 0 18px;
+      padding: 13px 16px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .case-title {
+      margin: 0;
+      font-size: 1.03rem;
+      font-weight: 760;
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+    }
+
+    section, footer {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.36rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    p, ul {
+      margin: 0 0 13px;
+    }
+
+    li + li {
+      margin-top: 5px;
+    }
+
+    .math-block {
+      margin: 13px 0 17px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fbfcfa;
+    }
+
+    .math-body {
+      overflow-x: auto;
+      padding: 13px 15px 10px;
+    }
+
+    .katex-display {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 3px;
+    }
+
+    .proof {
+      border-top: 1px solid var(--line);
+      background: #f5f7f4;
+    }
+
+    .proof summary {
+      display: flex;
+      align-items: center;
+      min-height: 39px;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 720;
+      list-style: none;
+    }
+
+    .proof summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .proof-label::after {
+      content: "proof \25B8";
+    }
+
+    .proof[open] .proof-label::after {
+      content: "proof \25BE";
+    }
+
+    .proof-content {
+      padding: 0 14px 14px;
+      color: #27312d;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      align-items: center;
+      margin-bottom: 13px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.86rem;
+      font-weight: 760;
+      border: 1px solid transparent;
+    }
+
+    .status.exact { color: var(--green); background: var(--green-bg); border-color: #a9dbc0; }
+    .status.approximate { color: var(--amber); background: var(--amber-bg); border-color: #e7c16f; }
+    .status.infeasible { color: var(--red); background: var(--red-bg); border-color: #d9aaa4; }
+    .status.exact_with_corrector { color: #416d21; background: linear-gradient(90deg, var(--amber-bg), var(--green-bg)); border-color: #c2d58a; }
+
+    .note, .caveat, .reason {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #f7faf7;
+      color: #33403a;
+    }
+
+    .caveat {
+      border-color: #dfc37a;
+      background: #fff7dd;
+    }
+
+    .reason {
+      border-color: #d9aaa4;
+      background: var(--red-bg);
+      color: #6f2929;
+    }
+
+    .footer-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .footer-link {
+      color: var(--accent);
+      font-weight: 720;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    .notation {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+      padding: 0 14px;
+    }
+
+    .notation summary {
+      cursor: pointer;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      font-weight: 760;
+      color: var(--accent);
+    }
+
+    .notation-body {
+      padding-bottom: 14px;
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding: 20px 14px 32px;
+      }
+
+      .controls {
+        margin: 0 -14px;
+        padding: 11px 14px;
+      }
+
+      .control-grid {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .axis-label {
+        margin-top: 6px;
+      }
+
+      section, footer {
+        padding: 17px;
+      }
+
+      .choice {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>EBCG - Energy-Based Classifier Guidance</h1>
+      <p class="subtitle">Reward-tilted sampling: $p_{\text{data}}\cdot\mu^\lambda$.</p>
+    </header>
+
+    <nav class="controls" aria-label="case controls">
+      <div class="control-grid" id="controls"></div>
+    </nav>
+
+    <div class="case-banner" aria-live="polite">
+      <p class="case-title" id="case-title"></p>
+    </div>
+
+    <main>
+      <section id="flow-section"></section>
+      <section id="data-section"></section>
+      <section id="inference-section"></section>
+    </main>
+
+    <footer>
+      <div class="footer-top">
+        <h2>Notation</h2>
+        <a class="footer-link" href="https://github.com/minkyu1022/EBCG">GitHub</a>
+      </div>
+      <details class="notation" open>
+        <summary>Reference panel</summary>
+        <div class="notation-body" id="notation"></div>
+      </details>
+    </footer>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    const md = String.raw;
+
+    const AXES = {
+      prior: [
+        ["gaussian", "gaussian"],
+        ["non_gaussian", "non-Gaussian"]
+      ],
+      data_dist: [
+        ["q", "q"],
+        ["pq", "p·q"]
+      ],
+      fit: [
+        ["flow_matching", "flow matching"],
+        ["stochastic_interpolant", "stoch. interpolant"],
+        ["score_matching", "score matching"]
+      ],
+      inference: [
+        ["velocity_ode", "velocity ODE"],
+        ["drift_sde", "drift SDE"],
+        ["score_sde", "score SDE"]
+      ]
+    };
+
+    const DEFAULT_STATE = {
+      prior: "non_gaussian",
+      data_dist: "pq",
+      fit: "stochastic_interpolant",
+      inference: "drift_sde"
+    };
+
+    const LABELS = {
+      prior: { gaussian: "gaussian", non_gaussian: "non-Gaussian" },
+      data_dist: { q: "q", pq: "p·q" },
+      fit: {
+        flow_matching: "flow matching",
+        stochastic_interpolant: "SI",
+        score_matching: "score matching"
+      },
+      inference: {
+        velocity_ode: "velocity ODE",
+        drift_sde: "drift SDE",
+        score_sde: "score SDE"
+      }
+    };
+
+    const PROOFS = {
+      coreIdentity: md`
+        <p>The forward SDE $dX=u_t\,dt+g_t\,dW$ has Fokker-Planck equation
+        $\partial_t\rho_t=-\nabla\!\cdot(u_t\rho_t)+\tfrac{g_t^2}{2}\Delta\rho_t$. The probability-flow ODE
+        $\dot X=v_t$ reproduces the same marginals $\rho_t$ when
+        $v_t=u_t-\tfrac{g_t^2}{2}\nabla\log\rho_t=u_t-\tfrac{g_t^2}{2}s_t$. Rearranging gives
+        $u_t=v_t+\tfrac{g_t^2}{2}s_t$. This holds for any prior because it is a statement about the
+        marginals, not the endpoints. &#8718;</p>`,
+      pDrift: md`
+        <p>The Flow-Sampling bridge tilts the endpoint of the interpolation toward high reward, producing the
+        general conditional drift
+        $u_{t\mid1}=\dot\alpha_t X_1+\dot\sigma_t X_0+\tfrac{g_t^2}{2\alpha_t}\nabla r(X_1)$. With the linear
+        schedule $\alpha_t=t,\ \sigma_t=1-t$ we have $\dot\alpha_t=1,\ \dot\sigma_t=-1$, so the first two
+        terms collapse to $X_1-X_0$. The Flow-Sampling diffusion is chosen as $g_t^2=2\kappa t$ precisely so
+        that $\tfrac{g_t^2}{2\alpha_t}=\tfrac{2\kappa t}{2t}=\kappa$, a constant. This choice also removes the
+        $t\to0$ singularity of $\tfrac{g_t^2}{2\alpha_t}$. Hence
+        $u_{t\mid1}=(X_1-X_0)+\kappa\,\nabla r(X_1)$. &#8718;</p>`,
+      pSplit: md`
+        <p>The regression target is a sum $u_{t\mid1}=(X_1-X_0)+\kappa\nabla r(X_1)$ of two functions of the
+        endpoints. An MSE regression onto a target returns its conditional expectation, and conditional
+        expectation is linear:
+        $\mathbb{E}[(X_1-X_0)+\kappa\nabla r\mid X_t]=\mathbb{E}[X_1-X_0\mid X_t]+\kappa\,\mathbb{E}[\nabla r\mid X_t]$.
+        So regressing each summand with its own head gives exactly the two pieces, with zero approximation.
+        It is also <strong>necessary</strong>: regressing only the sum pins down $v_t^p+\kappa\widehat{\nabla r}$ but
+        leaves the decomposition underdetermined (infinitely many $(\hat x_1^p,\widehat{\nabla r})$ share the
+        same sum). Guidance needs $\widehat{\nabla r}$ isolated, so each head must carry its own target. The
+        losses share no parameters, so minimizing them separately equals minimizing them jointly. &#8718;</p>`,
+      pVelocity: md`
+        <p>From $X_t=tX_1+(1-t)X_0$ we get $X_0=\dfrac{X_t-tX_1}{1-t}$, so
+        $\hat x_0^p=\dfrac{x-t\hat x_1^p}{1-t}$. The marginal velocity is
+        $v_t^p=\mathbb{E}[\dot X_t\mid X_t]=\mathbb{E}[X_1-X_0\mid X_t]=\hat x_1^p-\hat x_0^p
+        =\hat x_1^p-\dfrac{x-t\hat x_1^p}{1-t}=\dfrac{\hat x_1^p-x}{1-t}.$ &#8718;</p>`,
+      pScore: md`
+        <p>Taking the conditional expectation of the drift target,
+        $u_t=\mathbb{E}[u_{t\mid1}\mid X_t]=v_t^p+\kappa\,\widehat{\nabla r}=v_t^p+\dfrac{g_t^2}{2t}\widehat{\nabla r}$
+        (using $\kappa=\tfrac{g_t^2}{2t}$). Matching to the core identity $u_t=v_t^p+\tfrac{g_t^2}{2}s_t^p$
+        gives $\tfrac{g_t^2}{2}s_t^p=\tfrac{g_t^2}{2t}\widehat{\nabla r}$, hence
+        $s_t^p=\widehat{\nabla r}/t$. &#8718;</p>`,
+      gaussianOneHead: md`
+        <p>For $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$, Tweedie gives
+        $\mathbb{E}[tX_1\mid X_t]=x+(1-t)^2\nabla\log p_t(x)$, i.e.
+        $s_t=\nabla\log p_t=\dfrac{t\,\hat x_1-x}{(1-t)^2}$. With $v_t=\dfrac{\hat x_1-x}{1-t}$, the drift
+        $u_t=v_t+\tfrac{g_t^2}{2}s_t=\Big(\tfrac{1}{1-t}+\tfrac{g_t^2 t}{2(1-t)^2}\Big)\hat x_1
+        -\Big(\tfrac{1}{1-t}+\tfrac{g_t^2}{2(1-t)^2}\Big)x$ is affine in $\hat x_1$ with nonzero
+        coefficient, hence invertible: one output $u_t$ determines $\hat x_1$, then $v_t$ and $s_t$. For a
+        <strong>non-Gaussian</strong> prior the conditional $X_t\mid X_1$ is not Gaussian, the Tweedie identity for $s_t$
+        fails, and $u_t$ alone no longer determines $s_t$. That is why the non-Gaussian case needs the explicit
+        $\widehat{\nabla r}$ head. &#8718;</p>`,
+      fmPrior: md`
+        <p>The target $X_1-X_0$ depends only on the sampled endpoints, never on
+        the shape of $\pi$. Hence the loss and its optimum $v_t^{\text{data}}=\mathbb{E}[X_1-X_0\mid X_t]$ are
+        identical across priors. The product version merely shifts the regression target by the fixed
+        $v_t^p(X_t,t)$, giving $\delta_\phi^\star=v_t^{\text{data}}-v_t^p$. &#8718;</p>`,
+      dsmGaussian: md`
+        <p>With $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$,
+        $\nabla_{X_t}\log p_t(X_t\mid X_1)=-\dfrac{X_t-tX_1}{(1-t)^2}=\dfrac{tX_1-X_t}{(1-t)^2}$, and the DSM
+        optimum equals the marginal score $\nabla\log p_{\text{data},t}$ by Vincent's identity. &#8718;</p>`,
+      siScore: md`
+        <p>Conditioned on the endpoints, $X_t\mid(X_0,X_1)\sim\mathcal N\big(I_{01},\gamma_t^2 I\big)$ with
+        $I_{01}=tX_1+(1-t)X_0$. Tweedie on this Gaussian channel gives
+        $\mathbb{E}[I_{01}\mid X_t]=X_t+\gamma_t^2\nabla\log p_t(X_t)$, so
+        $\mathbb{E}[\gamma_t Z\mid X_t]=X_t-\mathbb{E}[I_{01}\mid X_t]=-\gamma_t^2\nabla\log p_t(X_t)$, hence
+        $\nabla\log p_t=-\dfrac{\mathbb{E}[Z\mid X_t]}{\gamma_t}=-\dfrac{z_\phi}{\gamma_t}$. This needs no
+        assumption on $\pi$, because the tractable channel is the injected $\gamma_t Z$, not the prior. &#8718;</p>`,
+      tiltedScore: md`
+        <p>For any densities $f,g$,
+        $\nabla\log(f g^{\lambda})=\nabla\log f+\lambda\nabla\log g$. Applying this to
+        $f=p_{\text{data},t}$, $g=\mu_t$ gives $\tilde s_t=s_t^{\text{data}}+\lambda s_t^p$ with no
+        approximation at any $t$. Note the path this score defines is the <strong>geometric blend</strong>
+        $\rho_t\propto p_{\text{data},t}\,\mu_t^{\lambda}$, which differs from "the clean target diffused" at
+        intermediate $t$ but coincides at $t=1$. &#8718;</p>`,
+      velocityOde: md`
+        <p>The exact probability-flow ODE for the tilt marginal is $\dot X=\tilde v_t$, the marginal velocity of
+        $\rho_t$. For a Gaussian prior the affine velocity-score relation $v_t=A_t x+B_t s_t$ holds, so
+        $\tilde v_t=A_tx+B_t\tilde s_t=v_t^{\text{data}}+\lambda B_t s_t^p$, matching the displayed update
+        under the schedule's $B_t$. For a non-Gaussian prior this affine relation fails and $\tilde v_t$ has
+        no closed form, so transporting with $v_t^{\text{data}}$ instead of $\tilde v_t$ leaves a bias. The
+        guidance term $\lambda\tfrac{g^2}{2}s^p$ is exact; only the base transport is approximate. &#8718;</p>`,
+      driftSde: md`
+        <p>The corrector is overdamped Langevin with drift $\tilde s_t=\nabla\log\rho_t$, whose stationary distribution is $\propto e^{\log\rho_t}=\rho_t$. So regardless of where the predictor lands, enough corrector steps relax the time-$t$ sample to the correct marginal $\rho_t\propto p_{\text{data},t}\mu_t^{\lambda}$. Sweeping $t:0\to1$ then lands at $\rho_1\propto p_{\text{data}}\,e^{\lambda r}$. The bare predictor is approximate because its transport uses $v_t^{\text{data}}\neq\tilde v_t$; the corrector removes that bias. For a Gaussian prior the bare drift is already exact, so no corrector is needed. &#8718;</p>`,
+      scoreSde: md`
+        <p>At fixed $t$, the SDE $dX=\nabla\log\rho_t\,d\tau+\sqrt2\,dW$ is
+        overdamped Langevin with potential $-\log\rho_t$, whose unique stationary density is $\rho_t$.
+        Annealing $t$ slowly keeps the sample near $\rho_t$ throughout and delivers $\rho_1$ at the end. No
+        velocity enters, so a score-only $q$ suffices. &#8718;</p>`
+    };
+
+    const CONTENT = {
+      notation: md`
+        <ul>
+          <li>$t\in[0,1]$, with $t=0$ the prior and $t=1$ the target. $X_t=t\,X_1+(1-t)\,X_0$.</li>
+          <li>$\pi$: prior distribution of $X_0$. $\mu\propto e^{r}$: Boltzmann target of $p$. $p_{\text{data}}$: data target of $q$.</li>
+          <li>$r(x)=-E(x)/T$: reward. $E$ from the MLIP, $T$ temperature.</li>
+          <li>$v_t=\mathbb{E}[\dot X_t\mid X_t]$: marginal <strong>velocity</strong>. $s_t=\nabla_x\log\rho_t(x)$: marginal <strong>score</strong> of the time-$t$ marginal $\rho_t$. $u_t$: SDE <strong>drift</strong>.</li>
+        </ul>`,
+      flowSampling: {
+        non_gaussian: {
+          title: "Flow Sampling (p) training - non-Gaussian prior",
+          intro: md`
+            <p>$p$ is always trained by Flow Sampling to sample $\mu\propto e^{r}$. The <strong>conditional drift
+            target</strong> (linear schedule, after substituting $g_t^2=2\kappa t$) is:</p>`,
+          blocks: [
+            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\kappa\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
+            { html: md`<p>Two network heads, each a posterior-mean regression onto a clean-endpoint quantity:</p>`, math: md`$$\hat x_1^p(x,t)\approx\mathbb{E}[X_1\mid X_t=x],\qquad
+\widehat{\nabla r}(x,t)\approx\mathbb{E}[\nabla r(X_1)\mid X_t=x].$$`, proof: PROOFS.pSplit },
+            { html: md`<p>Two decoupled losses:</p>`, math: md`$$\mathcal{L}_{\text{den}}=\mathbb{E}_{t,X_0,X_1}\big\|\hat x_1^p(X_t,t)-X_1\big\|^2,\qquad
+\mathcal{L}_{\nabla r}=\mathbb{E}_{t,X_0,X_1}\big\|\widehat{\nabla r}(X_t,t)-\nabla r(X_1)\big\|^2.$$`, proof: PROOFS.pSplit },
+            { html: md`<p>From the two heads, read off the marginal velocity and the marginal score of $\mu$:</p>`, math: md`$$v_t^p=\frac{\hat x_1^p(x,t)-x}{1-t},\qquad s_t^p=\frac{\widehat{\nabla r}(x,t)}{t}.$$`, proof: md`${PROOFS.pVelocity}${PROOFS.pScore}` },
+            { math: md`$$s_1^p=\widehat{\nabla r}=\nabla r(X_1)=-\nabla E/T=\nabla\log\mu.$$`, proof: PROOFS.pScore }
+          ]
+        },
+        gaussian: {
+          title: "Flow Sampling (p) training - Gaussian prior",
+          intro: md`
+            <p>$p$ is always trained by Flow Sampling to sample $\mu\propto e^{r}$. The <strong>conditional drift
+            target</strong> (linear schedule, after substituting $g_t^2=2\kappa t$) is:</p>`,
+          blocks: [
+            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\kappa\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
+            { html: md`<p>With a standard Gaussian prior, Tweedie's formula makes the score an affine function of the denoiser,
+            so a single drift output determines everything. With $X_0\sim\mathcal N(0,I)$ and the linear schedule,
+            $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2 I)$:</p>`, math: md`$$s_t^p=\frac{t\,\hat x_1^p-x}{(1-t)^2},\qquad v_t^p=\frac{\hat x_1^p-x}{1-t}.$$`, proof: PROOFS.gaussianOneHead },
+            { html: md`<p>Both are functions of the single denoiser $\hat x_1^p$. Equivalently, the single Flow-Sampling drift
+            output $u^\theta$ is an invertible affine function of $\hat x_1^p$, so one head recovers
+            $\hat x_1^p$, then $v_t^p$ and $s_t^p$. A single loss is enough:</p>`, math: md`$$\mathcal{L}=\mathbb{E}\|u^\theta(X_t,t)-u_{t\mid1}\|^2.$$`, proof: PROOFS.gaussianOneHead }
+          ]
+        }
+      },
+      dataFit: {
+        flow_matching__q: {
+          title: "Data-fitting (q) training - flow matching",
+          intro: md`<p>$q$ carries the data target. Flow matching exposes <strong>velocity only</strong>. Network output: $v_\phi(x,t)$.</p>`,
+          blocks: [
+            { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\big\|v_\phi(X_t,t)-(X_1-X_0)\big\|^2,
+\qquad v_\phi^\star=\mathbb{E}[X_1-X_0\mid X_t]=v_t^{\text{data}}.$$`, proof: PROOFS.fmPrior }
+          ],
+          outro: md`<p>This loss contains no prior term ($X_1-X_0$ is prior-agnostic), so flow matching trains identically
+          for any prior. It exposes the data velocity but <strong>no score</strong>.</p>`
+        },
+        flow_matching__pq: {
+          title: "Data-fitting (p·q) training - flow matching residual",
+          intro: md`<p>$q$ carries only the residual against $p$, where $p_\theta q_\phi=p_{\text{data}}$. Flow matching exposes <strong>velocity only</strong>.</p>`,
+          blocks: [
+            { html: md`<p>Product $p\cdot q$, residual velocity $\delta_\phi$:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\big\|v_t^p(X_t,t)+\delta_\phi(X_t,t)-(X_1-X_0)\big\|^2,
+\qquad \delta_\phi^\star=v_t^{\text{data}}-v_t^p,\quad v_t^{\text{data}}=v_t^p+\delta_\phi.$$`, proof: PROOFS.fmPrior }
+          ],
+          outro: md`<p>The product variant regresses the same network onto the residual target obtained by subtracting $p$'s velocity $v_t^p$.</p>`
+        },
+        score_matching__q: {
+          title: "Data-fitting (q) training - score matching",
+          intro: md`<p>Denoising score matching exposes <strong>score only</strong>. Network output: $s_\phi(x,t)$.</p>`,
+          blocks: [
+            { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\mathbb{E}_{t,X_0,X_1}\big\|s_\phi(X_t,t)-\nabla_{X_t}\log p_t(X_t\mid X_1,X_0)\big\|^2,
+\qquad s_\phi^\star=\nabla\log p_{\text{data},t}=s_t^{\text{data}}.$$`, proof: PROOFS.dsmGaussian }
+          ]
+        },
+        score_matching__pq: {
+          title: "Data-fitting (p·q) training - score matching residual",
+          intro: md`<p>Denoising score matching exposes <strong>score only</strong>. Product mode trains the residual score against $p$.</p>`,
+          blocks: [
+            { html: md`<p>Product $p\cdot q$, residual score:</p>`, math: md`$$s_\phi^\star=s_t^{\text{data}}-s_t^p=\nabla\log\frac{p_{\text{data},t}}{\mu_t},
+\qquad s_t^{\text{data}}=s_t^p+s_\phi.$$`, proof: PROOFS.dsmGaussian },
+            { html: md`<p>Implement the product residual by regressing $s_\phi$ onto:</p>`, math: md`$$\nabla_{X_t}\log p_t(X_t\mid X_1,X_0)-s_t^p(X_t,t).$$`, proof: PROOFS.dsmGaussian }
+          ]
+        },
+        stochastic_interpolant__q: {
+          title: "Data-fitting (q) training - stochastic interpolant",
+          intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Add latent Gaussian noise to the interpolant:
+          $X_t=t X_1+(1-t)X_0+\gamma_t Z$, $Z\sim\mathcal N(0,I)$, with $\gamma_0=\gamma_1=0$.
+          Two outputs: the velocity $v_\phi$ and the denoiser $z_\phi$.</p>`,
+          blocks: [
+            { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity}}
++\underbrace{\mathbb{E}\big\|z_\phi(X_t,t)-Z\big\|^2}_{\text{denoiser}},$$`, proof: PROOFS.siScore },
+            { math: md`$$v_t^{\text{data}}=v_\phi,\qquad s_t^{\text{data}}=-\frac{z_\phi(x,t)}{\gamma_t}.$$`, proof: PROOFS.siScore }
+          ],
+          outro: md`<p>The SI denoiser gives the score for <strong>any</strong> prior, which is the reason to pay for SI.</p>`
+        },
+        stochastic_interpolant__pq: {
+          title: "Data-fitting (p·q) training - stochastic interpolant residual",
+          intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Product mode regresses both currencies as residuals against $p$.</p>`,
+          blocks: [
+            { html: md`<p>Velocity residual against $v_t^p$ and denoiser target:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_t^p(X_t,t)+v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity residual}}
++\underbrace{\mathbb{E}\big\|z_\phi(X_t,t)-Z\big\|^2}_{\text{denoiser}},$$`, proof: PROOFS.siScore },
+            { html: md`<p>Recover the data score as $s_t^{\text{data}}=s_t^p+(\text{q's residual score})$:</p>`, math: md`$$s_t^{\text{data}}=s_t^p-\frac{z_\phi(x,t)}{\gamma_t}.$$`, proof: PROOFS.siScore }
+          ],
+          outro: md`<p>The SI denoiser gives the score for <strong>any</strong> prior, which is the reason to pay for SI.</p>`
+        }
+      },
+      inference: {
+        commonBlocks: [
+          { html: md`<p>Target $\rho_1\propto p_{\text{data}}\,\mu^{\lambda}\propto p_{\text{data}}\,e^{\lambda r}$.
+          Assemble the <strong>tilted score</strong>, exact at every $t$:</p>`, math: md`$$\tilde s_t=\nabla\log\big(p_{\text{data},t}\,\mu_t^{\lambda}\big)=s_t^{\text{data}}+\lambda\,s_t^p,
+\qquad s_t^p=\frac{\widehat{\nabla r}}{t}.$$`, proof: PROOFS.tiltedScore }
+        ],
+        pqBlock: { html: md`<p>For $p\cdot q$, substitute $s_t^{\text{data}}=s_t^p+s_\phi$:</p>`, math: md`$$\tilde s_t=(1+\lambda)s_t^p+s_\phi.$$`, proof: PROOFS.tiltedScore },
+        qBlock: { html: md`<p>For standalone $q$, use the data model score directly:</p>`, math: md`$$\tilde s_t=s_t^{\text{data}}+\lambda s_t^p.$$`, proof: PROOFS.tiltedScore },
+        velocity_ode: {
+          title: "Tilted inference - velocity ODE",
+          blocks: [
+            { math: md`$$\frac{dX}{dt}=v_t^{\text{data}}(X)+\lambda\,\frac{g_t^2}{2}\,s_t^p(X)
+=v_t^{\text{data}}(X)+\lambda\,\kappa\,\widehat{\nabla r}(X,t),\qquad t:0\to1.$$`, proof: PROOFS.velocityOde }
+          ],
+          outro: md`<p>Integrate from $X_0\sim\pi$. The $\tfrac{g_t^2}{2}s_t^p$ term converts the guidance score into a
+          velocity, and with $g_t^2=2\kappa t$, $s_t^p=\widehat{\nabla r}/t$ it simplifies to
+          $\kappa\,\widehat{\nabla r}$. Needs the data velocity.</p>`
+        },
+        drift_sde: {
+          title: "Tilted inference - drift SDE",
+          blocks: [
+            { math: md`$$dX=\Big[v_t^{\text{data}}(X)+\frac{\tilde g_t^2}{2}\,\tilde s_t(X)\Big]dt+\tilde g_t\,dW,
+\qquad \tilde s_t=s_t^{\text{data}}+\lambda s_t^p.$$`, proof: PROOFS.driftSde },
+            { html: md`<p>For a non-Gaussian prior, make it exact by adding a <strong>Langevin corrector</strong> at each $t$:</p>`, math: md`$$\text{corrector:}\quad X\leftarrow X+\epsilon\,\tilde s_t(X)+\sqrt{2\epsilon}\,\xi,\quad \xi\sim\mathcal N(0,I),$$`, proof: PROOFS.driftSde }
+          ],
+          outro: md`<p>Free choice of noise level $\tilde g_t$; $\tilde g_t=0$ recovers the velocity ODE. Needs both data velocity and data score.</p>`
+        },
+        score_sde: {
+          title: "Tilted inference - score SDE",
+          blocks: [
+            { html: md`<p>Annealed Langevin, velocity-free:</p>`, math: md`$$dX=\tilde s_t(X)\,d\tau+\sqrt2\,dW,\qquad \tilde s_t=s_t^{\text{data}}+\lambda s_t^p,$$`, proof: PROOFS.scoreSde }
+          ],
+          outro: md`<p>Run a few $\tau$-steps at each $t$ while annealing $t:0\to1$. Needs only the tilted score.
+          Asymptotically exact for any prior, but slower mixing than drift SDE because there is no ballistic transport.</p>`
+        }
+      }
+    };
+
+    function resolveInference(prior, data_dist, fit, mode) {
+      let qV = (fit === "flow_matching" || fit === "stochastic_interpolant");
+      let qS = (fit === "score_matching" || fit === "stochastic_interpolant");
+
+      if (prior === "gaussian" && (qV || qS)) { qV = true; qS = true; }
+
+      if (mode === "velocity_ode") {
+        if (!qV) return { status: "infeasible",
+          reason: "The velocity ODE needs the data velocity v_data. This fit exposes only the score, and a non-Gaussian prior blocks score to velocity conversion." };
+        return { status: (prior === "gaussian") ? "exact" : "approximate",
+          note: (prior === "gaussian")
+            ? "Exact: Tweedie makes the guided velocity equal the true tilt velocity."
+            : "Approximate: the transport uses v_data, not the true tilt velocity, which has no closed form for a non-Gaussian prior. The guidance term is exact; only the base transport is approximate." };
+      }
+
+      if (mode === "drift_sde") {
+        if (!qV || !qS) return { status: "infeasible",
+          reason: "The drift SDE needs both the data velocity v_data (transport) and the data score s_data (to form the tilted score). This fit/prior does not expose both." };
+        return { status: (prior === "gaussian") ? "exact" : "exact_with_corrector",
+          note: (prior === "gaussian")
+            ? "Exact: drift assembles velocity and score with no mismatch."
+            : "Exact only with a Langevin corrector (predictor-corrector). The bare drift transports with v_data not equal to the true tilt velocity; the corrector pins each marginal to the tilt path." };
+      }
+
+      if (mode === "score_sde") {
+        if (!qS) return { status: "infeasible",
+          reason: "The score SDE (annealed Langevin) needs the data score s_data. This fit exposes only the velocity, and a non-Gaussian prior blocks velocity to score conversion." };
+        return { status: "exact",
+          note: "Asymptotically exact (any prior). Uses only the tilted score; mixing can be slow because there is no ballistic transport." };
+      }
+    }
+
+    let state = { ...DEFAULT_STATE };
+
+    function parseHash() {
+      const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const next = { ...DEFAULT_STATE };
+      for (const axis of Object.keys(AXES)) {
+        const value = params.get(axis);
+        if (AXES[axis].some(([key]) => key === value)) next[axis] = value;
+      }
+      return next;
+    }
+
+    function writeHash() {
+      const hash = new URLSearchParams(state).toString();
+      if (window.location.hash.replace(/^#/, "") !== hash) {
+        history.replaceState(null, "", "#" + hash);
+      }
+    }
+
+    function makeControls() {
+      const mount = document.getElementById("controls");
+      mount.innerHTML = "";
+      const axisLabels = {
+        prior: "prior",
+        data_dist: "data dist",
+        fit: "fit model",
+        inference: "inference"
+      };
+      for (const [axis, options] of Object.entries(AXES)) {
+        const label = document.createElement("div");
+        label.className = "axis-label";
+        label.textContent = axisLabels[axis];
+        mount.appendChild(label);
+
+        const group = document.createElement("div");
+        group.className = "button-group";
+        group.setAttribute("role", "group");
+        group.setAttribute("aria-label", axisLabels[axis]);
+        for (const [key, text] of options) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "choice";
+          button.dataset.axis = axis;
+          button.dataset.value = key;
+          button.textContent = text;
+          button.addEventListener("click", () => {
+            state[axis] = key;
+            writeHash();
+            render();
+          });
+          group.appendChild(button);
+        }
+        mount.appendChild(group);
+      }
+    }
+
+    function proofBlock(proof) {
+      return md`
+        <details class="proof">
+          <summary><span class="proof-label"></span></summary>
+          <div class="proof-content">${proof}</div>
+        </details>`;
+    }
+
+    function renderBlocks(blocks) {
+      return blocks.map(block => md`
+        ${block.html || ""}
+        <div class="math-block">
+          <div class="math-body">${block.math}</div>
+          ${proofBlock(block.proof)}
+        </div>`).join("");
+    }
+
+    function statusLabel(status) {
+      return {
+        exact: "exact",
+        approximate: "approximate",
+        infeasible: "infeasible",
+        exact_with_corrector: "exact (with corrector)"
+      }[status];
+    }
+
+    function renderMath(node) {
+      if (!window.renderMathInElement) return;
+      renderMathInElement(node, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+
+    function render() {
+      for (const button of document.querySelectorAll(".choice")) {
+        button.setAttribute("aria-pressed", String(state[button.dataset.axis] === button.dataset.value));
+      }
+
+      document.getElementById("case-title").textContent =
+        `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}`;
+
+      const flow = CONTENT.flowSampling[state.prior];
+      const flowSection = document.getElementById("flow-section");
+      flowSection.innerHTML = md`<h2>Section 1 - ${flow.title}</h2>${flow.intro}${renderBlocks(flow.blocks)}`;
+
+      const data = CONTENT.dataFit[`${state.fit}__${state.data_dist}`];
+      const dataSection = document.getElementById("data-section");
+      const caveat = (state.prior === "non_gaussian" && state.fit === "score_matching")
+        ? md`<div class="caveat"><strong>Prior caveat.</strong> A deterministic interpolant has no intermediate conditional density given both endpoints, so DSM needs the conditional score of $X_t\mid X_1$ after marginalizing the prior. For a Gaussian prior this is closed form, $\nabla_{X_t}\log p_t(X_t\mid X_1)=\dfrac{tX_1-X_t}{(1-t)^2}$. For a non-Gaussian prior it requires a tractable prior score $\nabla\log\pi$ (for example, a harmonic prior) or added latent noise. If neither is available, use the stochastic interpolant instead, which manufactures a tractable noise channel.</div>`
+        : "";
+      dataSection.innerHTML = md`<h2>Section 2 - ${data.title}</h2>${caveat}${data.intro}${renderBlocks(data.blocks)}${data.outro || ""}`;
+
+      const resolved = resolveInference(state.prior, state.data_dist, state.fit, state.inference);
+      const inference = CONTENT.inference[state.inference];
+      const inferenceSection = document.getElementById("inference-section");
+      const statusHtml = md`<div class="pill-row"><span class="status ${resolved.status}">${statusLabel(resolved.status)}</span></div>`;
+      const message = resolved.reason
+        ? md`<div class="reason">${resolved.reason}</div>`
+        : md`<div class="note">${resolved.note}</div>`;
+      const body = resolved.status === "infeasible"
+        ? message
+        : md`${statusHtml}${message}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"]])}${renderBlocks(inference.blocks)}${inference.outro}`;
+      inferenceSection.innerHTML = md`<h2>Section 3 - ${inference.title}</h2>${resolved.status === "infeasible" ? statusHtml : ""}${body}`;
+
+      const notation = document.getElementById("notation");
+      notation.innerHTML = md`
+        ${CONTENT.notation}
+        <div class="math-block">
+          <div class="math-body">$$u_t=v_t+\dfrac{g_t^2}{2}\,s_t.$$</div>
+          ${proofBlock(PROOFS.coreIdentity)}
+        </div>
+        <ul>
+          <li>$\widehat{(\cdot)}$ denotes a learned network output. $\hat x_1^p=\mathbb{E}[X_1\mid X_t]$ and $\widehat{\nabla r}=\mathbb{E}[\nabla r(X_1)\mid X_t]$.</li>
+          <li>Reward-tilted target: $\rho_1\propto p_{\text{data}}\,\mu^{\lambda}\propto p_{\text{data}}\,e^{\lambda r}$, strength $\lambda\ge 0$.</li>
+        </ul>`;
+
+      for (const node of [flowSection, dataSection, inferenceSection, notation, document.querySelector("header")]) {
+        renderMath(node);
+      }
+    }
+
+    window.addEventListener("hashchange", () => {
+      state = parseHash();
+      render();
+    });
+
+    window.addEventListener("DOMContentLoaded", () => {
+      state = parseHash();
+      makeControls();
+      writeHash();
+      render();
+    });
+  </script>
+</body>
+</html>
