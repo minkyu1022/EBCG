@@ -431,17 +431,17 @@
         general conditional drift
         $u_{t\mid1}=\dot\alpha_t X_1+\dot\sigma_t X_0+\tfrac{g_t^2}{2\alpha_t}\nabla r(X_1)$. With the linear
         schedule $\alpha_t=t,\ \sigma_t=1-t$ we have $\dot\alpha_t=1,\ \dot\sigma_t=-1$, so the first two
-        terms collapse to $X_1-X_0$. The Flow-Sampling diffusion is chosen as $g_t^2=2\kappa t$ precisely so
-        that $\tfrac{g_t^2}{2\alpha_t}=\tfrac{2\kappa t}{2t}=\kappa$, a constant. This choice also removes the
+        terms collapse to $X_1-X_0$. Assume the Flow-Sampling diffusion is $g_t^2=2\gamma t$, so
+        $\tfrac{g_t^2}{2\alpha_t}=\tfrac{2\gamma t}{2t}=\gamma$, a constant. This choice also removes the
         $t\to0$ singularity of $\tfrac{g_t^2}{2\alpha_t}$. Hence
-        $u_{t\mid1}=(X_1-X_0)+\kappa\,\nabla r(X_1)$. &#8718;</p>`,
+        $u_{t\mid1}=(X_1-X_0)+\gamma\,\nabla r(X_1)$. &#8718;</p>`,
       pSplit: md`
-        <p>The regression target is a sum $u_{t\mid1}=(X_1-X_0)+\kappa\nabla r(X_1)$ of two functions of the
+        <p>The regression target is a sum $u_{t\mid1}=(X_1-X_0)+\gamma\nabla r(X_1)$ of two functions of the
         endpoints. An MSE regression onto a target returns its conditional expectation, and conditional
         expectation is linear:
-        $\mathbb{E}[(X_1-X_0)+\kappa\nabla r\mid X_t]=\mathbb{E}[X_1-X_0\mid X_t]+\kappa\,\mathbb{E}[\nabla r\mid X_t]$.
+        $\mathbb{E}[(X_1-X_0)+\gamma\nabla r\mid X_t]=\mathbb{E}[X_1-X_0\mid X_t]+\gamma\,\mathbb{E}[\nabla r\mid X_t]$.
         So regressing each summand with its own head gives exactly the two pieces, with zero approximation.
-        It is also <strong>necessary</strong>: regressing only the sum pins down $v_t^p+\kappa\widehat{\nabla r}$ but
+        It is also <strong>necessary</strong>: regressing only the sum pins down $v_t^p+\gamma\widehat{\nabla r}$ but
         leaves the decomposition underdetermined (infinitely many $(\hat x_1^p,\widehat{\nabla r})$ share the
         same sum). Guidance needs $\widehat{\nabla r}$ isolated, so each head must carry its own target. The
         losses share no parameters, so minimizing them separately equals minimizing them jointly. &#8718;</p>`,
@@ -452,8 +452,8 @@
         =\hat x_1^p-\dfrac{x-t\hat x_1^p}{1-t}=\dfrac{\hat x_1^p-x}{1-t}.$ &#8718;</p>`,
       pScore: md`
         <p>Taking the conditional expectation of the drift target,
-        $u_t=\mathbb{E}[u_{t\mid1}\mid X_t]=v_t^p+\kappa\,\widehat{\nabla r}=v_t^p+\dfrac{g_t^2}{2t}\widehat{\nabla r}$
-        (using $\kappa=\tfrac{g_t^2}{2t}$). Matching to the core identity $u_t=v_t^p+\tfrac{g_t^2}{2}s_t^p$
+        $u_t=\mathbb{E}[u_{t\mid1}\mid X_t]=v_t^p+\gamma\,\widehat{\nabla r}=v_t^p+\dfrac{g_t^2}{2t}\widehat{\nabla r}$
+        (using $\gamma=\tfrac{g_t^2}{2t}$). Matching to the core identity $u_t=v_t^p+\tfrac{g_t^2}{2}s_t^p$
         gives $\tfrac{g_t^2}{2}s_t^p=\tfrac{g_t^2}{2t}\widehat{\nabla r}$, hence
         $s_t^p=\widehat{\nabla r}/t$. &#8718;</p>`,
       gaussianOneHead: md`
@@ -518,9 +518,9 @@
           title: "Flow Sampling (p) training - non-Gaussian prior",
           intro: md`
             <p>$p$ is always trained by Flow Sampling to sample $\mu\propto e^{r}$. The <strong>conditional drift
-            target</strong> (linear schedule, after substituting $g_t^2=2\kappa t$) is:</p>`,
+            target</strong> (linear schedule, after substituting $g_t^2=2\gamma t$) is:</p>`,
           blocks: [
-            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\kappa\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
+            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
             { html: md`<p>Two network heads, each a posterior-mean regression onto a clean-endpoint quantity:</p>`, math: md`$$\hat x_1^p(x,t)\approx\mathbb{E}[X_1\mid X_t=x],\qquad
 \widehat{\nabla r}(x,t)\approx\mathbb{E}[\nabla r(X_1)\mid X_t=x].$$`, proof: PROOFS.pSplit },
             { html: md`<p>Two decoupled losses:</p>`, math: md`$$\mathcal{L}_{\text{den}}=\mathbb{E}_{t,X_0,X_1}\big\|\hat x_1^p(X_t,t)-X_1\big\|^2,\qquad
@@ -533,9 +533,9 @@
           title: "Flow Sampling (p) training - Gaussian prior",
           intro: md`
             <p>$p$ is always trained by Flow Sampling to sample $\mu\propto e^{r}$. The <strong>conditional drift
-            target</strong> (linear schedule, after substituting $g_t^2=2\kappa t$) is:</p>`,
+            target</strong> (linear schedule, after substituting $g_t^2=2\gamma t$) is:</p>`,
           blocks: [
-            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\kappa\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
+            { math: md`$$u_{t\mid 1}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1).$$`, proof: PROOFS.pDrift },
             { html: md`<p>With a standard Gaussian prior, Tweedie's formula makes the score an affine function of the denoiser,
             so a single drift output determines everything. With $X_0\sim\mathcal N(0,I)$ and the linear schedule,
             $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2 I)$:</p>`, math: md`$$s_t^p=\frac{t\,\hat x_1^p-x}{(1-t)^2},\qquad v_t^p=\frac{\hat x_1^p-x}{1-t}.$$`, proof: PROOFS.gaussianOneHead },
@@ -617,11 +617,11 @@
           title: "Tilted inference - velocity ODE",
           blocks: [
             { math: md`$$\frac{dX}{dt}=v_t^{\text{data}}(X)+\lambda\,\frac{g_t^2}{2}\,s_t^p(X)
-=v_t^{\text{data}}(X)+\lambda\,\kappa\,\widehat{\nabla r}(X,t),\qquad t:0\to1.$$`, proof: PROOFS.velocityOde }
+=v_t^{\text{data}}(X)+\lambda\,\gamma\,\widehat{\nabla r}(X,t),\qquad t:0\to1.$$`, proof: PROOFS.velocityOde }
           ],
           outro: md`<p>Integrate from $X_0\sim\pi$. The $\tfrac{g_t^2}{2}s_t^p$ term converts the guidance score into a
-          velocity, and with $g_t^2=2\kappa t$, $s_t^p=\widehat{\nabla r}/t$ it simplifies to
-          $\kappa\,\widehat{\nabla r}$. Needs the data velocity.</p>`
+          velocity, and with $g_t^2=2\gamma t$, $s_t^p=\widehat{\nabla r}/t$ it simplifies to
+          $\gamma\,\widehat{\nabla r}$. Needs the data velocity.</p>`
         },
         drift_sde: {
           title: "Tilted inference - drift SDE",
