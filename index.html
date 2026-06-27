@@ -805,7 +805,9 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
           $X_t=t X_1+(1-t)X_0+\gamma_t Z$, $Z\sim\mathcal N(0,I)$ on movable atoms. To match the AdsorbGen SI-denoiser runs,
           use $\gamma_t=\sigma\sqrt{\max(t(1-t),\varepsilon)}$ with $\sigma=0.1$ and $\varepsilon=10^{-5}$, and
           $\dot\gamma_t=\sigma(1-2t)/(2\sqrt{\max(t(1-t),\varepsilon)})$.
-          Two outputs: the velocity $v_\phi$ and the denoiser $z_\phi$.</p>`,
+          In the code run named <code>x1_SI_vloss_eta</code>, the main head is an $x_1$ prediction head; the velocity loss is applied after converting it by
+          $v_\phi=(\hat x_1-X_t)/(1-t)$. This is equivalent at the optimum to the direct $v_\phi$ notation below.
+          Two outputs: the velocity-equivalent main head and the denoiser $z_\phi$.</p>`,
           blocks: [
             { html: md`<p>Standalone $q$:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity}}
 +\underbrace{\mathbb{E}\big\|z_\phi(X_t,t)-Z\big\|^2}_{\text{denoiser}},$$`, proof: PROOFS.siScore },
@@ -817,7 +819,8 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
           title: "Data-fitting (p·q) training - stochastic interpolant residual",
           intro: md`<p>Stochastic interpolant exposes <strong>velocity and score</strong>. Product mode regresses both currencies as residuals against $p$. Use the AdsorbGen schedule
           $\gamma_t=0.1\sqrt{\max(t(1-t),10^{-5})}$ and
-          $\dot\gamma_t=0.1(1-2t)/(2\sqrt{\max(t(1-t),10^{-5})})$.</p>`,
+          $\dot\gamma_t=0.1(1-2t)/(2\sqrt{\max(t(1-t),10^{-5})})$. In code, the main output can be an $x_1$ head with velocity loss via
+          $v_\phi=(\hat x_1-X_t)/(1-t)$; the equations below use the equivalent optimum velocity notation.</p>`,
           blocks: [
             { html: md`<p>Velocity residual against $v_t^p$ and denoiser target:</p>`, math: md`$$\mathcal{L}=\underbrace{\mathbb{E}\big\|v_t^p(X_t,t)+v_\phi(X_t,t)-\big(X_1-X_0+\dot\gamma_t Z\big)\big\|^2}_{\text{velocity residual}}
 +\underbrace{\mathbb{E}\big\|z_\phi(X_t,t)-Z\big\|^2}_{\text{denoiser}},$$`, proof: PROOFS.siScore },
@@ -1100,7 +1103,8 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         return [
           "Use AdsorbGen's SI schedule $\\gamma_t=0.1\\sqrt{\\max(t(1-t),10^{-5})}$ and $\\dot\\gamma_t=0.1(1-2t)/(2\\sqrt{\\max(t(1-t),10^{-5})})$.",
           "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$ on movable atoms.",
-          "Train $v_\\phi$ to $X_1-X_0+\\dot\\gamma_t Z$ and train $z_\\phi$ to the injected noise $Z$.",
+          "Code path $x1\\_SI\\_vloss\\_eta$: predict $\\hat x_1$, convert to $v_\\phi=(\\hat x_1-X_t)/(1-t)$, and apply velocity loss to $X_1-X_0+\\dot\\gamma_t Z$.",
+          "Train $z_\\phi$ to the injected noise $Z$.",
           "Use $v_t^{\\text{data}}=v_\\phi$ and $s_t^{\\text{data}}=-z_\\phi/\\gamma_t$."
         ];
       }
@@ -1108,7 +1112,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         "Use AdsorbGen's SI schedule $\\gamma_t=0.1\\sqrt{\\max(t(1-t),10^{-5})}$ and $\\dot\\gamma_t=0.1(1-2t)/(2\\sqrt{\\max(t(1-t),10^{-5})})$.",
         "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$ on movable atoms.",
         "Use the trained $p$ model to compute $v_t^p$ and $s_t^p$.",
-        "Train $v_\\phi$ as the velocity residual against $X_1-X_0+\\dot\\gamma_t Z$, so $v_t^{\\text{data}}=v_t^p+v_\\phi$.",
+        "Code path $x1\\_SI\\_vloss\\_eta$: predict $\\hat x_1$, convert to $v_\\phi=(\\hat x_1-X_t)/(1-t)$, and apply velocity-residual loss against $X_1-X_0+\\dot\\gamma_t Z$ so $v_t^{\\text{data}}=v_t^p+v_\\phi$.",
         "Train $z_\\phi$ to the injected noise $Z$ and use residual score $s_t^q=-z_\\phi/\\gamma_t$, so $s_t^{\\text{data}}=s_t^p+s_t^q$."
       ];
     }
