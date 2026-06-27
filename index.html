@@ -323,6 +323,58 @@
       color: #29365d;
     }
 
+    .algorithm-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+
+    .algorithm-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+      overflow: hidden;
+    }
+
+    .algorithm-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--line);
+      background: var(--accent-soft);
+    }
+
+    .algorithm-head h3 {
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .algorithm-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 720;
+    }
+
+    .algorithm-box ol {
+      margin: 0;
+      padding: 13px 15px 14px 34px;
+    }
+
+    .algorithm-box li {
+      padding-left: 2px;
+    }
+
     .footer-top {
       display: flex;
       flex-wrap: wrap;
@@ -388,6 +440,10 @@
         white-space: normal;
         text-align: center;
       }
+
+      .algorithm-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -432,6 +488,7 @@
       <section id="inference-section"></section>
       <section id="guidance-section"></section>
       <section id="two-section"></section>
+      <section id="algorithm-section"></section>
     </main>
 
     <footer>
@@ -983,6 +1040,150 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         </div>`).join("");
     }
 
+    function algorithmBox(title, tag, steps) {
+      return md`
+        <div class="algorithm-box">
+          <div class="algorithm-head">
+            <h3>${title}</h3>
+            <span class="algorithm-tag">${tag}</span>
+          </div>
+          <ol>${steps.map(step => `<li>${step}</li>`).join("")}</ol>
+        </div>`;
+    }
+
+    function pTrainingSteps(prior) {
+      const steps = [
+        "Sample minibatch times $t\\in(t_{\\min},1)$, prior points $X_0\\sim\\pi$, and Flow-Sampling bridge endpoints for the Boltzmann target $\\mu\\propto e^r$.",
+        "Evaluate the MLIP reward gradient $\\nabla r(X_1)=-\\nabla E(X_1)/T$ and use $u_{t\\mid1}=(X_1-X_0)+\\gamma\\nabla r(X_1)$."
+      ];
+      if (prior === "gaussian") {
+        steps.push("Train one head $u_\\theta^p(X_t,t)$ with $\\mathbb{E}\\|u_\\theta^p-u_{t\\mid1}\\|^2$.");
+        steps.push("At use time set $D_t=1-t+\\gamma t^2$, $s_t^p=(t u_t^p-x)/D_t$, and $v_t^p=((1-t)u_t^p+\\gamma t x)/D_t$.");
+      } else {
+        steps.push("Train two heads: $\\hat x_1^p\\leftarrow X_1$ and $\\widehat{\\nabla r}\\leftarrow\\nabla r(X_1)$ with separate MSE losses.");
+        steps.push("At use time set $v_t^p=(\\hat x_1^p-x)/(1-t)$ and $s_t^p=\\widehat{\\nabla r}/t$.");
+      }
+      return steps;
+    }
+
+    function qTrainingSteps(state) {
+      if (state.fit === "flow_matching" && state.data_dist === "q") {
+        return [
+          "Sample data minibatches $X_1\\sim p_{\\text{data}}$, prior points $X_0\\sim\\pi$, and $X_t=tX_1+(1-t)X_0$.",
+          "Train $v_\\phi(X_t,t)$ with $\\mathbb{E}\\|v_\\phi(X_t,t)-(X_1-X_0)\\|^2$.",
+          "Use $v_t^{\\text{data}}=v_\\phi$. For Gaussian prior, recover $s_t^{\\text{data}}=(t v_t^{\\text{data}}-x)/(1-t)$ when a score is needed."
+        ];
+      }
+      if (state.fit === "flow_matching" && state.data_dist === "pq" && state.prior === "gaussian") {
+        return [
+          "Use the trained Gaussian $p$ model to compute $v_t^p$ and $s_t^p$.",
+          "Train a product residual score head $s_t^q=\\nabla\\log q_t=s_t^{\\text{data}}-s_t^p$.",
+          "Assemble $v_t^{\\text{data}}=v_t^p+(1-t)s_t^q/t$ and minimize $\\mathbb{E}\\|v_t^{\\text{data}}(X_t,t)-(X_1-X_0)\\|^2$.",
+          "Use $t_{\\min}>0$ or clamp $t$ because $(1-t)/t$ is singular at $t=0$."
+        ];
+      }
+      if (state.fit === "flow_matching" && state.data_dist === "pq") {
+        return [
+          "Use the trained non-Gaussian $p$ model to compute $v_t^p$.",
+          "Train a velocity residual $\\delta_\\phi$ because non-Gaussian score-to-velocity conversion has no closed form.",
+          "Assemble $v_t^{\\text{data}}=v_t^p+\\delta_\\phi$ and minimize $\\mathbb{E}\\|v_t^p(X_t,t)+\\delta_\\phi(X_t,t)-(X_1-X_0)\\|^2$."
+        ];
+      }
+      if (state.fit === "stochastic_interpolant" && state.data_dist === "q") {
+        return [
+          "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$.",
+          "Train $v_\\phi$ to $X_1-X_0+\\dot\\gamma_t Z$ and train $z_\\phi$ to $Z$.",
+          "Use $v_t^{\\text{data}}=v_\\phi$ and $s_t^{\\text{data}}=-z_\\phi/\\gamma_t$."
+        ];
+      }
+      return [
+        "Sample $X_t=tX_1+(1-t)X_0+\\gamma_t Z$ with $Z\\sim\\mathcal{N}(0,I)$.",
+        "Use the trained $p$ model to compute $v_t^p$ and $s_t^p$.",
+        "Train $v_\\phi$ as the velocity residual so $v_t^{\\text{data}}=v_t^p+v_\\phi$.",
+        "Train $z_\\phi$ to $Z$ and use residual score $s_t^q=-z_\\phi/\\gamma_t$, so $s_t^{\\text{data}}=s_t^p+s_t^q$."
+      ];
+    }
+
+    function fieldAssemblySteps(state) {
+      if (state.fit === "flow_matching" && state.data_dist === "pq" && state.prior === "gaussian") {
+        return [
+          "Evaluate $p$: $v_t^p$, $s_t^p$, and $\\widehat{\\nabla r}$.",
+          "Evaluate $q$: residual score $s_t^q$.",
+          "Assemble $v_t^{\\text{data}}=v_t^p+(1-t)s_t^q/t$ and $\\tilde s_t=(1+\\lambda)s_t^p+s_t^q$."
+        ];
+      }
+      if (state.fit === "flow_matching" && state.data_dist === "pq") {
+        return [
+          "Evaluate $p$: $v_t^p$, $s_t^p$, and $\\widehat{\\nabla r}$.",
+          "Evaluate $q$: velocity residual $\\delta_\\phi$.",
+          "Assemble $v_t^{\\text{data}}=v_t^p+\\delta_\\phi$. A tilted score is unavailable for this non-Gaussian flow-matching case."
+        ];
+      }
+      if (state.fit === "flow_matching") {
+        return [
+          "Evaluate $p$: $s_t^p$ and $\\widehat{\\nabla r}$.",
+          "Evaluate $q$: $v_t^{\\text{data}}=v_\\phi$.",
+          state.prior === "gaussian"
+            ? "Recover $s_t^{\\text{data}}=(t v_t^{\\text{data}}-x)/(1-t)$ and set $\\tilde s_t=s_t^{\\text{data}}+\\lambda s_t^p$."
+            : "No $s_t^{\\text{data}}$ is available; score-based inference modes are infeasible."
+        ];
+      }
+      if (state.data_dist === "pq") {
+        return [
+          "Evaluate $p$: $v_t^p$, $s_t^p$, and $\\widehat{\\nabla r}$.",
+          "Evaluate $q$: velocity residual $v_\\phi$ and score residual $s_t^q=-z_\\phi/\\gamma_t$.",
+          "Assemble $v_t^{\\text{data}}=v_t^p+v_\\phi$ and $\\tilde s_t=(1+\\lambda)s_t^p+s_t^q$."
+        ];
+      }
+      return [
+        "Evaluate $p$: $s_t^p$ and $\\widehat{\\nabla r}$.",
+        "Evaluate $q$: $v_t^{\\text{data}}=v_\\phi$ and $s_t^{\\text{data}}=-z_\\phi/\\gamma_t$.",
+        "Assemble $\\tilde s_t=s_t^{\\text{data}}+\\lambda s_t^p$."
+      ];
+    }
+
+    function generationSteps(state, resolved) {
+      if (resolved.status === "infeasible") {
+        return [
+          "This selected generator is infeasible for the current trained outputs.",
+          resolved.reason,
+          "Switch to stochastic interpolant, or switch to a Gaussian prior when you need velocity-score conversion."
+        ];
+      }
+      const steps = [
+        "Draw initial samples $X_0\\sim\\pi$ and choose a time grid from $t=0$ to $t=1$ with $t\\ge t_{\\min}$.",
+        ...fieldAssemblySteps(state)
+      ];
+      if (state.inference === "velocity_ode") {
+        if (state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching") {
+          steps.push("Integrate $dX/dt=v_t^p+(1-t)s_t^q/t+\\lambda\\gamma\\widehat{\\nabla r}$.");
+        } else {
+          steps.push("Integrate $dX/dt=v_t^{\\text{data}}+\\lambda\\gamma\\widehat{\\nabla r}$.");
+        }
+      } else if (state.inference === "drift_sde") {
+        steps.push("Run predictor steps $dX=[v_t^{\\text{data}}+(\\tilde g_t^2/2)\\tilde s_t]dt+\\tilde g_t dW$.");
+        if (resolved.status === "exact_with_corrector") {
+          steps.push("After each predictor step, run Langevin corrector updates $X\\leftarrow X+\\epsilon\\tilde s_t(X)+\\sqrt{2\\epsilon}\\xi$ at fixed $t$.");
+        }
+      } else {
+        steps.push("At each $t$, run annealed Langevin updates $dX=\\tilde s_t(X)d\\tau+\\sqrt2 dW$.");
+      }
+      steps.push("Return final samples at $t=1$, targeting $\\rho_1^\\lambda\\propto p_{\\text{data}}e^{\\lambda r}$.");
+      return steps;
+    }
+
+    function renderAlgorithmSection(resolved) {
+      return md`
+        <h2>Section 6 - Case algorithm</h2>
+        <div class="algorithm-grid">
+          ${algorithmBox("Training algorithm", `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]}`, [
+            ...pTrainingSteps(state.prior),
+            ...qTrainingSteps(state)
+          ])}
+          ${algorithmBox("Generation algorithm", `${LABELS.inference[state.inference]} · ${statusLabel(resolved.status)}`, generationSteps(state, resolved))}
+        </div>`;
+    }
+
     function statusLabel(status) {
       return {
         exact: "exact",
@@ -1074,6 +1275,9 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         ${renderBlocks([two.caseForm[state.data_dist], two.caveatBlock, two.inferenceBlock])}
         ${two.outro}`;
 
+      const algorithmSection = document.getElementById("algorithm-section");
+      algorithmSection.innerHTML = renderAlgorithmSection(resolved);
+
       const notation = document.getElementById("notation");
       notation.innerHTML = md`
         ${CONTENT.notation}
@@ -1086,7 +1290,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
           <li>Reward-tilted target: $\rho_1\propto p_{\text{data}}\,\mu^{\lambda}\propto p_{\text{data}}\,e^{\lambda r}$, strength $\lambda\ge 0$.</li>
         </ul>`;
 
-      for (const node of [document.getElementById("overview"), rewardSection, flowSection, dataSection, inferenceSection, guidanceSection, twoSection, notation, document.querySelector("header")]) {
+      for (const node of [document.getElementById("overview"), rewardSection, flowSection, dataSection, inferenceSection, guidanceSection, twoSection, algorithmSection, notation, document.querySelector("header")]) {
         renderMath(node);
       }
     }
