@@ -653,9 +653,18 @@
         <p>On the Gaussian VE channel $X_\sigma\mid X_1\sim\mathcal N(X_1,\sigma^2 I)$, Tweedie ties the score to a
         single denoiser, $s^p_\sigma=(D^p_\theta-x)/\sigma^2$. So one Boltzmann denoiser carries the
         noise-aware force and a separate reward-gradient head is not needed at the representation level,
-        exactly as a Gaussian prior collapses the two-head $t$-FS to one head. The energy still enters through
-        the Flow-Sampling objective that makes $D^p_\theta$ the energy-weighted posterior mean
-        $\mathbb E_\mu[X_1\mid X_\sigma]$ rather than the plain data posterior mean. &#8718;</p>`,
+        exactly as a Gaussian prior collapses the two-head $t$-FS to one head. If clean samples came from
+        $\mu$, the population denoising loss would be minimized by
+        $\arg\min_D\mathbb E_{\mu}\|D(X_\sigma;\sigma)-X_1\|^2=\mathbb E_\mu[X_1\mid X_\sigma]$. Flow Sampling
+        supplies this Boltzmann posterior target from the energy objective, so the denoiser represents the
+        Boltzmann noised marginal rather than the plain data posterior. &#8718;</p>`,
+      sigmaFsObjective: md`
+        <p>For the VE bridge, the clean endpoint sampled from the Boltzmann law obeys
+        $X_\sigma=X_1+\sigma\epsilon$, $\epsilon\sim\mathcal N(0,I)$. The squared-loss optimum is the
+        conditional mean because, pointwise in $(x,\sigma)$, minimizing
+        $\mathbb E[\|D-x_1\|^2\mid X_\sigma=x]$ gives
+        $D=\mathbb E_\mu[X_1\mid X_\sigma=x]$. Flow Sampling is the energy-based route to that target; it is
+        not fitting $p_{\text{data}}$ and it does not involve the residual $q$. &#8718;</p>`,
       diffusionResidual: md`
         <p>From $p_\theta q_\phi=p_{\text{data}}$, $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$ at every
         $\sigma$. Multiplying by $\sigma^2$ and adding $x$ gives
@@ -821,13 +830,13 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
         },
         diffusion: {
           title: "Flow Sampling (p) training - diffusion (Gaussian VE, σ)",
-          intro: md`<p>When the data model is diffusion, the whole pipeline lives on the EDM Gaussian VE process indexed by the noise level $\sigma$, so $p$ is expressed on the <strong>same</strong> process as $q$. Flow Sampling trains a <strong>Boltzmann denoiser</strong> $D^p_\theta(x;\sigma)$ that targets the energy-weighted clean sample, $D^p_\theta(x;\sigma)\approx\mathbb E_{\mu}[X_1\mid X_\sigma=x]$ with $\mu\propto e^r$, using the same EDM preconditioning as $q$. No Boltzmann samples are needed. This is the $\sigma$-image of the two-head $t$-FS, and the Gaussian channel collapses the two heads into one denoiser.</p>`,
+          intro: md`<p>When the data model is diffusion, Section 1 should still describe only the $p$ model. The shared process is the EDM Gaussian VE bridge $X_\sigma=X_1+\sigma\epsilon$. Flow Sampling trains a <strong>Boltzmann denoiser</strong> $D^p_\theta(x;\sigma)$ for $\mu\propto e^r$, i.e. the noised Boltzmann marginal $\mu_\sigma$, not the data model and not the residual $q$.</p>`,
           blocks: [
             { html: md`<p>EDM-preconditioned Boltzmann denoiser, identical preconditioning to $q$:</p>`, math: md`$$D^p_\theta(x;\sigma)=c_{\text{skip}}(\sigma)\,x+c_{\text{out}}(\sigma)\,F^p_\theta\!\big(c_{\text{in}}(\sigma)\,x;\,c_{\text{noise}}(\sigma)\big).$$`, proof: PROOFS.sigmaFsOneHead },
+            { html: md`<p>The training target is the Boltzmann posterior mean on the VE bridge. In population form:</p>`, math: md`$$D^{p,\star}_\sigma(x)=\mathbb E_{\mu}[X_1\mid X_\sigma=x],\qquad
+\mathcal L^p_\sigma=\mathbb E_{\sigma,X_\sigma}\Big[\big\|D^p_\theta(X_\sigma;\sigma)-D^{p,\star}_\sigma(X_\sigma)\big\|^2\Big].$$`, proof: PROOFS.sigmaFsObjective },
             { html: md`<p>The noise-aware Boltzmann score is read by Tweedie, with the clean-limit check:</p>`, math: md`$$s^p_\sigma(x)=\frac{D^p_\theta(x;\sigma)-x}{\sigma^2},\qquad
-s^p_\sigma\;\xrightarrow{\;\sigma\to 0\;}\;\nabla\log\mu=\nabla r=-\nabla E/T.$$`, proof: PROOFS.sigmaFsScore },
-            { html: md`<p>The $t$-FS exposes $s^p_t=\widehat{\nabla r}/t$ on the interpolation bridge. The $\sigma$-FS exposes $s^p_\sigma=(D^p_\theta-x)/\sigma^2$ on the VE bridge. Both are the same noise-aware Boltzmann force, written on the process the data model uses. For the diffusion column the tilt combines like-for-like at each $\sigma$:</p>`, math: md`$$\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda\,s^p_\sigma,\qquad
-\text{product: }\ \tilde s_\sigma=(1+\lambda)\,s^p_\sigma+s^q_\sigma.$$` }
+s^p_\sigma\;\xrightarrow{\;\sigma\to 0\;}\;\nabla\log\mu=\nabla r=-\nabla E/T.$$`, proof: PROOFS.sigmaFsScore }
           ]
         }
       },
