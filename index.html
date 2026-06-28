@@ -641,34 +641,28 @@
         prior, not the heuristic $\pi$ of flow matching or the stochastic interpolant. This is why the diffusion
         column lives in the Gaussian regime and the prior axis is locked. &#8718;</p>`,
       sigmaFsScore: md`
-        <p>The noised Boltzmann marginal is
-        $\mu_\sigma(x)=\int\mu(x_1)\,\mathcal N(x;x_1,\sigma^2 I)\,dx_1$. Differentiating,
-        $\nabla_x\log\mu_\sigma(x)=\dfrac{\int\mu(x_1)\frac{x_1-x}{\sigma^2}\mathcal N(x;x_1,\sigma^2 I)\,dx_1}{\mu_\sigma(x)}
-        =\dfrac{1}{\sigma^2}\big(\mathbb E_\mu[X_1\mid X_\sigma=x]-x\big)=\dfrac{D^p_\theta(x;\sigma)-x}{\sigma^2}$,
-        using the optimal denoiser $D^p_\theta=\mathbb E_\mu[X_1\mid X_\sigma]$. As $\sigma\to 0$ the kernel
-        collapses, $\mathbb E_\mu[X_1\mid X_\sigma=x]\to x$ along the score direction, and
-        $s^p_\sigma\to\nabla\log\mu=\nabla r=-\nabla E/T$, the clean Boltzmann force. This matches the $t$-FS
-        boundary $s^p_1=\widehat{\nabla r}=\nabla r(X_1)$. &#8718;</p>`,
+        <p>Let $B_{\text{FS}}$ be the endpoint distribution represented by the current on-policy/off-policy
+        Flow-Sampling replay buffer, with endpoints $\hat X_1$. Its VE-smoothed marginal is
+        $b_\sigma(x)=\int B_{\text{FS}}(\hat x_1)\mathcal N(x;\hat x_1,\sigma^2I)d\hat x_1$. Differentiating,
+        $\nabla_x\log b_\sigma(x)=\dfrac{1}{\sigma^2}\big(\mathbb E_{B_{\text{FS}}}[\hat X_1\mid X_\sigma=x]-x\big)$.
+        Therefore a denoiser trained on noised buffer endpoints gives
+        $s^p_\sigma=(D^p_\theta-x)/\sigma^2$ for the current FS endpoint distribution. When the fixed-point
+        iteration converges, $B_{\text{FS}}\approx\mu\propto e^r$, so this becomes the noised Boltzmann force
+        and the clean limit approaches $\nabla\log\mu=\nabla r=-\nabla E/T$. &#8718;</p>`,
       sigmaFsOneHead: md`
-        <p>On the Gaussian VE channel $X_\sigma\mid X_1\sim\mathcal N(X_1,\sigma^2 I)$, Tweedie ties the score to a
-        single denoiser, $s^p_\sigma=(D^p_\theta-x)/\sigma^2$. So one Boltzmann denoiser carries the
-        noise-aware force and a separate reward-gradient head is not needed at the representation level,
-        exactly as a Gaussian prior collapses the two-head $t$-FS to one head. If clean samples came from
-        $\mu$, the population denoising loss would be minimized by
-        $\arg\min_D\mathbb E_{\mu}\|D(X_\sigma;\sigma)-X_1\|^2=\mathbb E_\mu[X_1\mid X_\sigma]$. Flow Sampling
-        supplies this Boltzmann posterior target from the energy objective. Thus the learned <em>output</em>
-        is one denoiser, but the training signal still contains the reward/energy; otherwise the same
-        denoising regression would learn the plain data posterior, not $\mu_\sigma$. &#8718;</p>`,
+        <p>On the Gaussian VE channel $X_\sigma\mid \hat X_1\sim\mathcal N(\hat X_1,\sigma^2 I)$, Tweedie ties the score to a
+        single denoiser, $s^p_\sigma=(D^p_\theta-x)/\sigma^2$. So the diffusion branch does not need a
+        separate reward-gradient head. That does <em>not</em> mean supervised samples from $\mu$ are available:
+        the clean endpoint in the regression is the fixed-point Flow-Sampling endpoint $\hat X_1$ stored in the
+        on-policy/off-policy buffer. The reward/energy enters through how those buffer endpoints are generated,
+        accepted, reweighted, and refreshed. &#8718;</p>`,
       sigmaFsObjective: md`
-        <p>For the VE bridge, the clean endpoint sampled from the Boltzmann law obeys
-        $X_\sigma=X_1+\sigma\epsilon$, $\epsilon\sim\mathcal N(0,I)$. The squared-loss optimum is the
-        conditional mean because, pointwise in $(x,\sigma)$, minimizing
-        $\mathbb E[\|D-x_1\|^2\mid X_\sigma=x]$ gives
-        $D=\mathbb E_\mu[X_1\mid X_\sigma=x]$. Flow Sampling is the energy-based route to that target. If
-        the denoising loss were run on ordinary data samples without the reward tilt, the optimum would be
-        $\mathbb E_{p_{\text{data}}}[X_1\mid X_\sigma=x]$ instead. So this branch does not train a separate
-        reward-gradient head, but it still trains from the reward/energy objective. It is not fitting the
-        residual $q$. &#8718;</p>`,
+        <p>The regression is over available FS endpoints, not oracle Boltzmann samples. Given
+        $\hat X_1\sim B_{\text{FS}}$, form $X_\sigma=\hat X_1+\sigma\epsilon$. The denoising optimum is
+        $\mathbb E_{B_{\text{FS}}}[\hat X_1\mid X_\sigma=x]$, i.e. the score of the current noised buffer
+        distribution. The fixed-point iteration uses the MLIP reward $r=-E/T$ to move this buffer toward
+        $\mu\propto e^r$; only at that fixed point does the denoiser become the Boltzmann denoiser. It is not
+        data denoising and it is not fitting the residual $q$. &#8718;</p>`,
       diffusionResidual: md`
         <p>From $p_\theta q_\phi=p_{\text{data}}$, $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$ at every
         $\sigma$. Multiplying by $\sigma^2$ and adding $x$ gives
@@ -834,14 +828,17 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
         },
         diffusion: {
           title: "Flow Sampling (p) training - diffusion (Gaussian VE, σ)",
-          intro: md`<p>When the data model is diffusion, Section 1 should still describe only the $p$ model. The shared process is the EDM Gaussian VE bridge $X_\sigma=X_1+\sigma\epsilon$. Flow Sampling trains a <strong>Boltzmann denoiser</strong> $D^p_\theta(x;\sigma)$ for $\mu\propto e^r$, i.e. the noised Boltzmann marginal $\mu_\sigma$, not the data model and not the residual $q$. Only the <em>head</em> collapses to a denoiser; the reward/energy still defines the Flow-Sampling training target.</p>`,
+          intro: md`<p>When the data model is diffusion, Section 1 should still describe only the $p$ model. The shared process is the EDM Gaussian VE bridge $X_\sigma=\hat X_1+\sigma\epsilon$. Flow Sampling does not have ground-truth $X_1\sim\mu$. It has fixed-point/on-policy/off-policy endpoints $\hat X_1$ from the FS replay buffer, scored by the MLIP reward $r=-E/T$. The diffusion variant trains a one-head denoiser on those endpoints; the reward enters through the fixed-point buffer update, not through a separate reward-gradient head.</p>`,
           blocks: [
-            { html: md`<p>EDM-preconditioned Boltzmann denoiser, identical preconditioning to $q$:</p>`, math: md`$$D^p_\theta(x;\sigma)=c_{\text{skip}}(\sigma)\,x+c_{\text{out}}(\sigma)\,F^p_\theta\!\big(c_{\text{in}}(\sigma)\,x;\,c_{\text{noise}}(\sigma)\big).$$`, proof: PROOFS.sigmaFsOneHead },
-            { html: md`<p>The training target is the Boltzmann posterior mean on the VE bridge. In population form:</p>`, math: md`$$D^{p,\star}_\sigma(x)=\mathbb E_{\mu}[X_1\mid X_\sigma=x],\qquad
-\mathcal L^p_\sigma=\mathbb E_{\sigma,X_\sigma}\Big[\big\|D^p_\theta(X_\sigma;\sigma)-D^{p,\star}_\sigma(X_\sigma)\big\|^2\Big].$$`, proof: PROOFS.sigmaFsObjective },
-            { html: md`<p>This is not plain data denoising. Plain diffusion denoising would learn $D^{\text{data}}_\sigma$; Flow Sampling uses the reward/energy objective so the same one-head denoiser learns $D^p_\sigma$ instead:</p>`, math: md`$$D^p_\sigma(x)=\mathbb E_{\mu}[X_1\mid X_\sigma=x]\neq
-D^{\text{data}}_\sigma(x)=\mathbb E_{p_{\text{data}}}[X_1\mid X_\sigma=x].$$`, proof: PROOFS.sigmaFsObjective },
-            { html: md`<p>The noise-aware Boltzmann score is read by Tweedie, with the clean-limit check:</p>`, math: md`$$s^p_\sigma(x)=\frac{D^p_\theta(x;\sigma)-x}{\sigma^2},\qquad
+            { html: md`<p>EDM-preconditioned FS endpoint denoiser. At fixed point this is the Boltzmann denoiser; the preconditioning is identical to $q$:</p>`, math: md`$$D^p_\theta(x;\sigma)=c_{\text{skip}}(\sigma)\,x+c_{\text{out}}(\sigma)\,F^p_\theta\!\big(c_{\text{in}}(\sigma)\,x;\,c_{\text{noise}}(\sigma)\big).$$`, proof: PROOFS.sigmaFsOneHead },
+            { html: md`<p>The actual denoising loss uses FS buffer endpoints $\hat X_1$, not unavailable Boltzmann samples:</p>`, math: md`$$\hat X_1\sim\mathcal B_{\text{FS}},\qquad
+X_\sigma=\hat X_1+\sigma\epsilon,\quad \epsilon\sim\mathcal N(0,I),$$
+$$\mathcal L^p_\sigma=\mathbb E_{\hat X_1,\sigma,\epsilon}\Big[w_{\text{FS}}(\hat X_1)\,
+\big\|D^p_\theta(\hat X_1+\sigma\epsilon;\sigma)-\hat X_1\big\|^2\Big].$$`, proof: PROOFS.sigmaFsObjective },
+            { html: md`<p>At a fixed point, the replay endpoint distribution approximates $\mu\propto e^r$. Then the same x1-denoising head represents the noised Boltzmann score. Before convergence it represents the current buffer score:</p>`, math: md`$$D^{p,\star}_{\sigma,\mathcal B}(x)=\mathbb E_{\mathcal B_{\text{FS}}}[\hat X_1\mid X_\sigma=x],
+\qquad
+D^{p,\star}_{\sigma,\mathcal B}\xrightarrow[\text{FS fixed point}]{}D^{p,\star}_{\sigma,\mu}.$$`, proof: PROOFS.sigmaFsObjective },
+            { html: md`<p>The noise-aware FS score is read by Tweedie; at fixed point it is the Boltzmann score, with the clean-limit check:</p>`, math: md`$$s^p_\sigma(x)=\frac{D^p_\theta(x;\sigma)-x}{\sigma^2},\qquad
 s^p_\sigma\;\xrightarrow{\;\sigma\to 0\;}\;\nabla\log\mu=\nabla r=-\nabla E/T.$$`, proof: PROOFS.sigmaFsScore }
           ]
         }
@@ -1196,8 +1193,9 @@ x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
       if (state.fit === "diffusion") {
         return [
           "Sample $\sigma$ lognormally, $\ln\sigma\sim\mathcal N(P_{\text{mean}},P_{\text{std}}^2)$.",
-          "Form the Boltzmann VE bridge at level $\sigma$ via the Flow-Sampling objective, energy-based and without Boltzmann samples.",
-          "Train the EDM-preconditioned Boltzmann denoiser $D^p_\theta(x;\sigma)$ toward the energy-weighted posterior mean $\mathbb E_\mu[X_1\mid X_\sigma]$.",
+          "Maintain the Flow-Sampling replay buffer $\mathcal B_{\text{FS}}$ with fixed-point/on-policy/off-policy endpoints $\hat X_1$, scored by the MLIP reward $r=-E/T$.",
+          "Sample $\hat X_1\sim\mathcal B_{\text{FS}}$, form $X_\sigma=\hat X_1+\sigma\epsilon$, and train the EDM-preconditioned denoiser $D^p_\theta(X_\sigma;\sigma)$ toward $\hat X_1$ with the FS buffer weight or selection rule.",
+          "Refresh the buffer by generating candidates from the current $p_\theta$, evaluating reward/energy, and reinserting accepted or reweighted endpoints; at the fixed point $\mathcal B_{\text{FS}}\approx\mu\propto e^r$.",
           "Read $s^p_\sigma=(D^p_\theta(x;\sigma)-x)/\sigma^2$ and use it in $\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda s^p_\sigma$, or $(1+\lambda)s^p_\sigma+s^q_\sigma$ for product."
         ];
       }
