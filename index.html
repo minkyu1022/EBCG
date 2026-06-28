@@ -125,6 +125,11 @@
       border-color: var(--accent);
     }
 
+    .choice:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+
     .case-banner {
       margin: 22px 0 18px;
       padding: 13px 16px;
@@ -520,7 +525,8 @@
       ],
       fit: [
         ["flow_matching", "flow matching"],
-        ["stochastic_interpolant", "stoch. interpolant"]
+        ["stochastic_interpolant", "stoch. interpolant"],
+        ["diffusion", "diffusion"]
       ],
       inference: [
         ["velocity_ode", "velocity ODE"],
@@ -541,7 +547,8 @@
       data_dist: { q: "q", pq: "p·q" },
       fit: {
         flow_matching: "flow matching",
-        stochastic_interpolant: "SI"
+        stochastic_interpolant: "SI",
+        diffusion: "diffusion"
       },
       inference: {
         velocity_ode: "velocity ODE",
@@ -618,6 +625,32 @@
         $s_t=\dfrac{t v_t-x}{1-t}$ gives
         $v_t^{\text{data}}=v_t^p+\dfrac{1-t}{t}s_t^q$. Substituting this into each inference equation makes
         the product correction explicit. &#8718;</p>`,
+      diffusionScore: md`
+        <p>With $X_\sigma\mid X_1\sim\mathcal N(X_1,\sigma^2 I)$, Tweedie gives
+        $\mathbb E[X_1\mid X_\sigma=x]=x+\sigma^2\nabla_x\log p_\sigma(x)$. The denoiser optimum is
+        $D_\theta(x;\sigma)=\mathbb E[X_1\mid X_\sigma=x]$, so
+        $\nabla_x\log p_\sigma(x)=(D_\theta(x;\sigma)-x)/\sigma^2$. The EDM probability-flow ODE is
+        $\dfrac{dx}{d\sigma}=-\sigma\,\nabla_x\log p_\sigma(x)$, hence
+        $\dfrac{dx}{d\sigma}=(x-D_\theta(x;\sigma))/\sigma$. &#8718;</p>`,
+      diffusionGaussianPrior: md`
+        <p>The marginal $p_\sigma=p_{\text{data}}*\mathcal N(0,\sigma^2 I)$ is the data convolved with Gaussian
+        noise of scale $\sigma$. As $\sigma\to\sigma_{\max}\gg$ the data extent, the data contributes negligibly
+        and $p_{\sigma_{\max}}\to\mathcal N(0,\sigma_{\max}^2 I)$. Sampling therefore starts from a Gaussian
+        prior, not the heuristic $\pi$ of flow matching or the stochastic interpolant. This is why the diffusion
+        column lives in the Gaussian regime and the prior axis is locked. &#8718;</p>`,
+      diffusionResidual: md`
+        <p>From $p_\theta q_\phi=p_{\text{data}}$, $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$ at every
+        $\sigma$. Multiplying by $\sigma^2$ and adding $x$ gives
+        $D^{\text{data}}_\sigma=x+\sigma^2 s^{\text{data}}_\sigma=(x+\sigma^2s^p_\sigma)+\sigma^2s^q_\sigma
+        =D^p_\sigma+\sigma^2s^q_\sigma$. So $q$ regresses the residual denoiser
+        $D^{\text{data}}_\sigma-D^p_\sigma=\sigma^2s^q_\sigma$. &#8718;</p>`,
+      diffusionTilted: md`
+        <p>$\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda s^p_\sigma$ by the product rule for
+        $\nabla\log(p_{\text{data},\sigma}\mu_\sigma^\lambda)$. Then
+        $\tilde D_\sigma=x+\sigma^2\tilde s_\sigma=(x+\sigma^2s^{\text{data}}_\sigma)+\lambda\sigma^2s^p_\sigma
+        =D^{\text{data}}_\sigma+\lambda\sigma^2s^p_\sigma$. Substituting $\tilde D_\sigma$ into the EDM ODE or
+        churn sampler yields tilted marginals exactly because the Gaussian process makes denoiser, score, and
+        velocity interconvertible. &#8718;</p>`,
       dsmGaussian: md`
         <p>With $X_t\mid X_1\sim\mathcal N(tX_1,(1-t)^2I)$,
         $\nabla_{X_t}\log p_t(X_t\mid X_1)=-\dfrac{X_t-tX_1}{(1-t)^2}=\dfrac{tX_1-X_t}{(1-t)^2}$, and the DSM
@@ -719,6 +752,7 @@
           <li>$\pi$: prior distribution of $X_0$. $\mu\propto e^{r}$: Boltzmann target of $p$. $p_{\text{data}}$: data target of $q$.</li>
           <li>$r(x)=-E(x)/T$: reward. $E$ from the MLIP, $T$ temperature.</li>
           <li>$v_t=\mathbb{E}[\dot X_t\mid X_t]$: marginal <strong>velocity</strong>. $s_t=\nabla_x\log\rho_t(x)$: marginal <strong>score</strong> of the time-$t$ marginal $\rho_t$. $u_t$: SDE <strong>drift</strong>.</li>
+          <li>Diffusion uses noise level $\sigma$, noised sample $X_\sigma=X_1+\sigma\epsilon$, marginal $p_\sigma=p_{\text{data}}*\mathcal N(0,\sigma^2I)$, denoiser $D_\theta(x;\sigma)$, and Gaussian VE prior at large $\sigma$.</li>
         </ul>`,
       rewardTiltedTarget: {
         intro: md`
@@ -827,6 +861,35 @@ v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`
             { html: md`<p>Recover the data score as $s_t^{\text{data}}=s_t^p+(\text{q's residual score})$:</p>`, math: md`$$s_t^{\text{data}}=s_t^p-\frac{z_\phi(x,t)}{\gamma_t}.$$`, proof: PROOFS.siScore }
           ],
           outro: md`<p>The SI denoiser gives the score for <strong>any</strong> prior, which is the reason to pay for SI.</p>`
+        },
+        diffusion__q: {
+          title: "Data-fitting (q) training - diffusion denoiser",
+          intro: md`<p>Choosing diffusion replaces interpolation with the EDM Gaussian noising process. Corrupt clean data with $X_\sigma=X_1+\sigma\epsilon$ and train a denoiser $D_\theta(x;\sigma)$ to predict $X_1$, using EDM preconditioning and loss. This is the AlphaFold3 / Boltz diffusion recipe applied to $p_{\text{data}}$.</p>`,
+          blocks: [
+            { html: md`<p>EDM preconditioning:</p>`, math: md`$$D_\theta(x;\sigma)=c_{\text{skip}}(\sigma)\,x+c_{\text{out}}(\sigma)\,F_\theta\!\big(c_{\text{in}}(\sigma)\,x;\,c_{\text{noise}}(\sigma)\big),$$
+$$c_{\text{skip}}=\frac{\sigma_{\text{data}}^2}{\sigma^2+\sigma_{\text{data}}^2},\quad
+c_{\text{out}}=\frac{\sigma\,\sigma_{\text{data}}}{\sqrt{\sigma^2+\sigma_{\text{data}}^2}},\quad
+c_{\text{in}}=\frac{1}{\sqrt{\sigma^2+\sigma_{\text{data}}^2}},\quad
+c_{\text{noise}}=\tfrac14\ln\sigma.$$`, proof: PROOFS.diffusionGaussianPrior },
+            { html: md`<p>EDM weighted denoising loss, with $\ln\sigma\sim\mathcal N(P_{\text{mean}},P_{\text{std}}^2)$:</p>`, math: md`$$\mathcal L=\mathbb E_{\sigma\sim p_{\text{train}}}\,\mathbb E_{X_1,\epsilon}\Big[\lambda(\sigma)\,\big\|D_\theta(X_1+\sigma\epsilon;\sigma)-X_1\big\|^2\Big],
+\qquad \lambda(\sigma)=\frac{\sigma^2+\sigma_{\text{data}}^2}{(\sigma\,\sigma_{\text{data}})^2}.$$`, proof: PROOFS.diffusionScore },
+            { html: md`<p>Read off both currencies from the denoiser:</p>`, math: md`$$s^{\text{data}}_\sigma(x)=\frac{D_\theta(x;\sigma)-x}{\sigma^2},\qquad
+\frac{dx}{d\sigma}\Big|_{\text{PF}}=\frac{x-D_\theta(x;\sigma)}{\sigma}=-\sigma\,s^{\text{data}}_\sigma(x).$$`, proof: PROOFS.diffusionScore }
+          ],
+          outro: md`<div class="note"><strong>AF3 / Boltz fidelity.</strong> Diffusion uses an EDM clean-coordinate denoiser, EDM weighted MSE, lognormal training noise, Karras $\rho=7$ sampling, and optionally the EDM churn sampler with random rotation/translation augmentation. For adsorbate coordinates, set $\sigma_{\text{data}}$ to the empirical coordinate standard deviation of movable atoms.</div>
+          <p>Diffusion exposes velocity and score together, so every inference mode is exact. Cost: EDM noising is Gaussian, so the non-Gaussian prior branch does not apply.</p>`
+        },
+        diffusion__pq: {
+          title: "Data-fitting (p·q) training - diffusion residual denoiser",
+          intro: md`<p>The product keeps $p_\theta q_\phi=p_{\text{data}}$. On the shared $\sigma$-process, scores add, $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$, so $q$ learns the residual against $p$'s Boltzmann score. Equivalently, $q$ learns a residual denoiser.</p>`,
+          blocks: [
+            { html: md`<p>Residual score and denoiser forms:</p>`, math: md`$$s^q_\sigma=s^{\text{data}}_\sigma-s^p_\sigma=\nabla_x\log\frac{p_{\text{data},\sigma}}{\mu_\sigma},
+\qquad s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma,$$
+$$D^{\text{data}}_\sigma=D^p_\sigma+\sigma^2\,s^q_\sigma.$$`, proof: PROOFS.diffusionResidual },
+            { html: md`<p>Here $s^p_\sigma$ comes from the Flow-Sampling Boltzmann model expressed on the same Gaussian $\sigma$-process:</p>`, math: md`$$s^p_\sigma(x)=\frac{D^p_\theta(x;\sigma)-x}{\sigma^2}.$$`, proof: PROOFS.diffusionScore }
+          ],
+          outro: md`<div class="note"><strong>Minima caveat.</strong> A denoiser trained on relaxed-minima data gives a harmonic-around-minima force at low $\sigma$, not the true Boltzmann force. The Flow-Sampling model still supplies the noise-aware Boltzmann force $s^p_\sigma$.</div>
+          <div class="note"><strong>Trade-off.</strong> Diffusion buys mature EDM preconditioning and AF3 / Boltz sampling, but replaces the heuristic prior with a Gaussian VE process.</div>`
         }
       },
       inference: {
@@ -847,6 +910,26 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         drift_sde_pq_gaussian: {
           math: md`$$dX=\Big[v_t^p(X)+\frac{1-t}{t}s_t^q(X,t)+\frac{\tilde g_t^2}{2}\big((1+\lambda)s_t^p(X)+s_t^q(X,t)\big)\Big]dt+\tilde g_t\,dW.$$`,
           proof: PROOFS.pqGaussianInference
+        },
+        diffusionCommonBlock: { html: md`<p>On the diffusion $\sigma$-process the tilted score and tilted denoiser are exact:</p>`, math: md`$$\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda\,s^p_\sigma,\qquad
+\tilde D_\sigma(x)=x+\sigma^2\tilde s_\sigma=D^{\text{data}}_\sigma+\lambda\,\sigma^2\,s^p_\sigma.$$`, proof: PROOFS.diffusionTilted },
+        diffusionPqBlock: { html: md`<p>For $p\cdot q$, substitute $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$:</p>`, math: md`$$\tilde s_\sigma=(1+\lambda)s^p_\sigma+s^q_\sigma.$$`, proof: PROOFS.diffusionResidual },
+        diffusion_velocity_ode: {
+          math: md`$$\frac{dx}{d\sigma}=\frac{x-\tilde D_\sigma(x)}{\sigma}=-\sigma\,\tilde s_\sigma(x),\qquad
+\sigma:\sigma_{\max}\to\sigma_{\min}.$$`,
+          proof: PROOFS.diffusionTilted
+        },
+        diffusion_drift_sde: {
+          html: md`<p>EDM churn sampler: raise noise to $\hat\sigma=(1+\gamma)\sigma$ by injecting fresh Gaussian noise, denoise with $\tilde D_{\hat\sigma}$, then take an Euler step in $\sigma$. Optional per-step random rotation and translation augmentation matches the AF3 / Boltz sampler family.</p>`,
+          math: md`$$\hat\sigma=(1+\gamma)\sigma,\qquad
+x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
+\frac{dx}{d\sigma}\approx\frac{x-\tilde D_{\hat\sigma}(x)}{\hat\sigma}.$$`,
+          proof: PROOFS.diffusionTilted
+        },
+        diffusion_score_sde: {
+          math: md`$$dx=\tilde s_\sigma(x)\,d\tau+\sqrt2\,dW,\qquad
+\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda s^p_\sigma,$$`,
+          proof: PROOFS.diffusionTilted
         },
         velocity_ode: {
           title: "Tilted inference - velocity ODE",
@@ -946,16 +1029,18 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
     };
 
     function resolveInference(prior, data_dist, fit, mode) {
-      let qV = (fit === "flow_matching" || fit === "stochastic_interpolant");
-      let qS = (fit === "stochastic_interpolant");
+      let effPrior = prior;
+      if (fit === "diffusion") effPrior = "gaussian";
+      let qV = (fit === "flow_matching" || fit === "stochastic_interpolant" || fit === "diffusion");
+      let qS = (fit === "stochastic_interpolant" || fit === "diffusion");
 
-      if (prior === "gaussian" && (qV || qS)) { qV = true; qS = true; }
+      if (effPrior === "gaussian" && (qV || qS)) { qV = true; qS = true; }
 
       if (mode === "velocity_ode") {
         if (!qV) return { status: "infeasible",
           reason: "The velocity ODE needs the data velocity v_data. This fit exposes only the score, and a non-Gaussian prior blocks score to velocity conversion." };
-        return { status: (prior === "gaussian") ? "exact" : "approximate",
-          note: (prior === "gaussian")
+        return { status: (effPrior === "gaussian") ? "exact" : "approximate",
+          note: (effPrior === "gaussian")
             ? "Exact: Tweedie makes the guided velocity equal the true tilt velocity."
             : "Approximate: the transport uses v_data, not the true tilt velocity, which has no closed form for a non-Gaussian prior. The guidance term is exact; only the base transport is approximate." };
       }
@@ -963,8 +1048,8 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       if (mode === "drift_sde") {
         if (!qV || !qS) return { status: "infeasible",
           reason: "The drift SDE needs both the data velocity v_data (transport) and the data score s_data (to form the tilted score). This fit/prior does not expose both." };
-        return { status: (prior === "gaussian") ? "exact" : "exact_with_corrector",
-          note: (prior === "gaussian")
+        return { status: (effPrior === "gaussian") ? "exact" : "exact_with_corrector",
+          note: (effPrior === "gaussian")
             ? "Exact: drift assembles velocity and score with no mismatch."
             : "Exact only with a Langevin corrector (predictor-corrector). The bare drift transports with v_data not equal to the true tilt velocity; the corrector pins each marginal to the tilt path." };
       }
@@ -986,6 +1071,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         const value = params.get(axis);
         if (AXES[axis].some(([key]) => key === value)) next[axis] = value;
       }
+      if (next.fit === "diffusion") next.prior = "gaussian";
       return next;
     }
 
@@ -1024,6 +1110,7 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
           button.textContent = text;
           button.addEventListener("click", () => {
             state[axis] = key;
+            if (state.fit === "diffusion") state.prior = "gaussian";
             writeHash();
             render();
           });
@@ -1077,6 +1164,21 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
     }
 
     function qTrainingSteps(state) {
+      if (state.fit === "diffusion" && state.data_dist === "q") {
+        return [
+          "Sample $\\ln\\sigma\\sim\\mathcal N(P_{\\text{mean}},P_{\\text{std}}^2)$ and corrupt data as $X_\\sigma=X_1+\\sigma\\epsilon$.",
+          "Train EDM denoiser $D_\\theta(x;\\sigma)$ to predict $X_1$ with weight $\\lambda(\\sigma)=(\\sigma^2+\\sigma_{\\text{data}}^2)/(\\sigma\\sigma_{\\text{data}})^2$.",
+          "Read $s^{\\text{data}}_\\sigma=(D_\\theta-x)/\\sigma^2$ and PF velocity $dx/d\\sigma=(x-D_\\theta)/\\sigma$."
+        ];
+      }
+      if (state.fit === "diffusion" && state.data_dist === "pq") {
+        return [
+          "Sample $\\ln\\sigma\\sim\\mathcal N(P_{\\text{mean}},P_{\\text{std}}^2)$ and corrupt data as $X_\\sigma=X_1+\\sigma\\epsilon$.",
+          "Use $p$ on the same Gaussian $\\sigma$-process to compute $D^p_\\sigma$ and $s^p_\\sigma=(D^p_\\sigma-x)/\\sigma^2$.",
+          "Train $q$ as a residual denoiser: $D^{\\text{data}}_\\sigma=D^p_\\sigma+\\sigma^2s^q_\\sigma$.",
+          "Assemble $s^{\\text{data}}_\\sigma=s^p_\\sigma+s^q_\\sigma$ and $\\tilde s_\\sigma=(1+\\lambda)s^p_\\sigma+s^q_\\sigma$."
+        ];
+      }
       if (state.fit === "flow_matching" && state.data_dist === "q") {
         return [
           "Sample data minibatches $X_1\\sim p_{\\text{data}}$, prior points $X_0\\sim\\pi$, and $X_t=tX_1+(1-t)X_0$.",
@@ -1118,6 +1220,20 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
     }
 
     function fieldAssemblySteps(state) {
+      if (state.fit === "diffusion" && state.data_dist === "pq") {
+        return [
+          "Evaluate diffusion denoisers/scores on the current $\\sigma$: $s^p_\\sigma$ and $s^q_\\sigma$.",
+          "Assemble $\\tilde s_\\sigma=(1+\\lambda)s^p_\\sigma+s^q_\\sigma$ and $\\tilde D_\\sigma=x+\\sigma^2\\tilde s_\\sigma$.",
+          "Use EDM PF velocity $dx/d\\sigma=(x-\\tilde D_\\sigma)/\\sigma=-\\sigma\\tilde s_\\sigma$."
+        ];
+      }
+      if (state.fit === "diffusion") {
+        return [
+          "Evaluate data denoiser $D^{\\text{data}}_\\sigma$ and Boltzmann score $s^p_\\sigma$.",
+          "Assemble $\\tilde s_\\sigma=s^{\\text{data}}_\\sigma+\\lambda s^p_\\sigma$ and $\\tilde D_\\sigma=D^{\\text{data}}_\\sigma+\\lambda\\sigma^2s^p_\\sigma$.",
+          "Use EDM PF velocity $dx/d\\sigma=(x-\\tilde D_\\sigma)/\\sigma=-\\sigma\\tilde s_\\sigma$."
+        ];
+      }
       if (state.fit === "flow_matching" && state.data_dist === "pq" && state.prior === "gaussian") {
         return [
           "Evaluate $p$: $v_t^p$, $s_t^p$, and $\\widehat{\\nabla r}$.",
@@ -1164,10 +1280,19 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         ];
       }
       const steps = [
-        "Draw initial samples $X_0\\sim\\pi$ and choose a time grid from $t=0$ to $t=1$ with $t\\ge t_{\\min}$.",
+        state.fit === "diffusion"
+          ? "Draw initial samples $x_{\\sigma_{\\max}}\\sim\\mathcal N(0,\\sigma_{\\max}^2I)$ and choose the Karras $\\rho=7$ schedule from $\\sigma_{\\max}$ to $\\sigma_{\\min}$."
+          : "Draw initial samples $X_0\\sim\\pi$ and choose a time grid from $t=0$ to $t=1$ with $t\\ge t_{\\min}$.",
         ...fieldAssemblySteps(state)
       ];
-      if (state.inference === "velocity_ode") {
+      if (state.fit === "diffusion" && state.inference === "velocity_ode") {
+        steps.push("Integrate $dx/d\\sigma=(x-\\tilde D_\\sigma(x))/\\sigma$ with a 2nd-order Heun solver.");
+      } else if (state.fit === "diffusion" && state.inference === "drift_sde") {
+        steps.push("Run EDM churn: raise $\\sigma$ to $\\hat\\sigma$, inject fresh Gaussian noise, denoise with $\\tilde D_{\\hat\\sigma}$, then Euler step in $\\sigma$.");
+        steps.push("Optionally apply per-step random rotation and translation augmentation as in AF3 / Boltz.");
+      } else if (state.fit === "diffusion") {
+        steps.push("At each $\\sigma$, run annealed Langevin updates $dx=\\tilde s_\\sigma(x)d\\tau+\\sqrt2dW$.");
+      } else if (state.inference === "velocity_ode") {
         if (state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching") {
           steps.push("Integrate $dX/dt=v_t^p+(1-t)s_t^q/t+\\lambda\\gamma\\widehat{\\nabla r}$.");
         } else {
@@ -1181,7 +1306,9 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       } else {
         steps.push("At each $t$, run annealed Langevin updates $dX=\\tilde s_t(X)d\\tau+\\sqrt2 dW$.");
       }
-      steps.push("Return final samples at $t=1$, targeting $\\rho_1^\\lambda\\propto p_{\\text{data}}e^{\\lambda r}$.");
+      steps.push(state.fit === "diffusion"
+        ? "Return final samples at $\\sigma_{\\min}$, targeting $\\rho_1^\\lambda\\propto p_{\\text{data}}e^{\\lambda r}$."
+        : "Return final samples at $t=1$, targeting $\\rho_1^\\lambda\\propto p_{\\text{data}}e^{\\lambda r}$.");
       return steps;
     }
 
@@ -1218,12 +1345,15 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
     }
 
     function render() {
+      if (state.fit === "diffusion") state.prior = "gaussian";
       for (const button of document.querySelectorAll(".choice")) {
+        const disabled = state.fit === "diffusion" && button.dataset.axis === "prior" && button.dataset.value === "non_gaussian";
+        button.disabled = disabled;
         button.setAttribute("aria-pressed", String(state[button.dataset.axis] === button.dataset.value));
       }
 
       document.getElementById("case-title").textContent =
-        `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}`;
+        `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}${state.fit === "diffusion" ? " · diffusion uses Gaussian VE prior" : ""}`;
 
       const reward = CONTENT.rewardTiltedTarget;
       const rewardSection = document.getElementById("reward-section");
@@ -1253,11 +1383,20 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         ? md`<div class="note cross-link">Score SDE is coarse-grained MD on the tilted force field $\tilde s_t$; see Section 5.</div>`
         : "";
       const usePqGaussianScore = state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching";
-      const assemblyBlock = usePqGaussianScore
+      const diffusionModeMap = {
+        velocity_ode: CONTENT.inference.diffusion_velocity_ode,
+        drift_sde: CONTENT.inference.diffusion_drift_sde,
+        score_sde: CONTENT.inference.diffusion_score_sde
+      };
+      const assemblyBlock = state.fit === "diffusion"
+        ? (state.data_dist === "pq" ? CONTENT.inference.diffusionPqBlock : CONTENT.inference.diffusionCommonBlock)
+        : usePqGaussianScore
         ? CONTENT.inference.pqGaussianBlock
         : CONTENT.inference[state.data_dist === "pq" ? "pqBlock" : "qBlock"];
       const modeBlocks = [];
-      if (usePqGaussianScore && state.inference === "velocity_ode") {
+      if (state.fit === "diffusion") {
+        modeBlocks.push(diffusionModeMap[state.inference]);
+      } else if (usePqGaussianScore && state.inference === "velocity_ode") {
         modeBlocks.push(CONTENT.inference.velocity_ode_pq_gaussian);
       } else if (usePqGaussianScore && state.inference === "drift_sde") {
         modeBlocks.push(CONTENT.inference.drift_sde_pq_gaussian);
@@ -1266,6 +1405,8 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       }
       const body = resolved.status === "infeasible"
         ? md`${message}${scoreSdeLink}`
+        : state.fit === "diffusion"
+        ? md`${statusHtml}${message}${renderBlocks([CONTENT.inference.diffusionCommonBlock])}${state.data_dist === "pq" ? renderBlocks([CONTENT.inference.diffusionPqBlock]) : ""}${renderBlocks(modeBlocks)}`
         : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([assemblyBlock])}${renderBlocks(modeBlocks)}${inference.outro}`;
       inferenceSection.innerHTML = md`<h2>Section 3 - ${inference.title}</h2>${resolved.status === "infeasible" ? statusHtml : ""}${body}`;
 
