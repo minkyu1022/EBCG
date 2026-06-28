@@ -463,10 +463,12 @@
     <section class="overview" id="overview">
       <h2>Setup</h2>
       <ul class="overview-list">
-        <li>Linear schedule: $\alpha_t=t$, $\sigma_t=1-t$, and $X_t=tX_1+(1-t)X_0$.</li>
+        <li>Flow-matching / SI schedule: $\alpha_t=t$ and interpolation weight $1-t$, so $X_t=tX_1+(1-t)X_0$. We write $1-t$ inline and reserve $\sigma$ for the diffusion noise level.</li>
         <li>Flow-Sampling diffusion: assume $g_t^2=2\gamma t$, so $\dfrac{g_t^2}{2\alpha_t}=\gamma$.</li>
         <li>Prior: $X_0\sim\pi$. Boltzmann model: $\mu\propto e^r$ with reward $r(x)=-E(x)/T$.</li>
         <li>Data model: $q$ fits $p_{\text{data}}$ directly, or $p\cdot q$ fits the residual so $p_\theta q_\phi=p_{\text{data}}$.</li>
+        <li>Diffusion column: corruption is the EDM Gaussian VE process indexed by noise level $\sigma$, $X_\sigma=X_1+\sigma\epsilon$, $\epsilon\sim\mathcal N(0,I)$. Large $\sigma$ is the prior end, $\sigma\to0$ the data end.</li>
+        <li>Diffusion sampling uses Karras $\rho=7$ schedule over $[\sigma_{\min},\sigma_{\max}]$; $p$, $q$, and the tilt all live on the shared $\sigma$ process, with $s_\sigma=(D_\theta(x;\sigma)-x)/\sigma^2$.</li>
       </ul>
       <p>The reward-tilted target distribution is
       $\rho_1^\lambda\propto p_{\text{data}}\,\mu^\lambda\propto p_{\text{data}}\,e^{\lambda r}$.
@@ -638,6 +640,22 @@
         and $p_{\sigma_{\max}}\to\mathcal N(0,\sigma_{\max}^2 I)$. Sampling therefore starts from a Gaussian
         prior, not the heuristic $\pi$ of flow matching or the stochastic interpolant. This is why the diffusion
         column lives in the Gaussian regime and the prior axis is locked. &#8718;</p>`,
+      sigmaFsScore: md`
+        <p>The noised Boltzmann marginal is
+        $\mu_\sigma(x)=\int\mu(x_1)\,\mathcal N(x;x_1,\sigma^2 I)\,dx_1$. Differentiating,
+        $\nabla_x\log\mu_\sigma(x)=\dfrac{\int\mu(x_1)\frac{x_1-x}{\sigma^2}\mathcal N(x;x_1,\sigma^2 I)\,dx_1}{\mu_\sigma(x)}
+        =\dfrac{1}{\sigma^2}\big(\mathbb E_\mu[X_1\mid X_\sigma=x]-x\big)=\dfrac{D^p_\theta(x;\sigma)-x}{\sigma^2}$,
+        using the optimal denoiser $D^p_\theta=\mathbb E_\mu[X_1\mid X_\sigma]$. As $\sigma\to 0$ the kernel
+        collapses, $\mathbb E_\mu[X_1\mid X_\sigma=x]\to x$ along the score direction, and
+        $s^p_\sigma\to\nabla\log\mu=\nabla r=-\nabla E/T$, the clean Boltzmann force. This matches the $t$-FS
+        boundary $s^p_1=\widehat{\nabla r}=\nabla r(X_1)$. &#8718;</p>`,
+      sigmaFsOneHead: md`
+        <p>On the Gaussian VE channel $X_\sigma\mid X_1\sim\mathcal N(X_1,\sigma^2 I)$, Tweedie ties the score to a
+        single denoiser, $s^p_\sigma=(D^p_\theta-x)/\sigma^2$. So one Boltzmann denoiser carries the
+        noise-aware force and a separate reward-gradient head is not needed at the representation level,
+        exactly as a Gaussian prior collapses the two-head $t$-FS to one head. The energy still enters through
+        the Flow-Sampling objective that makes $D^p_\theta$ the energy-weighted posterior mean
+        $\mathbb E_\mu[X_1\mid X_\sigma]$ rather than the plain data posterior mean. &#8718;</p>`,
       diffusionResidual: md`
         <p>From $p_\theta q_\phi=p_{\text{data}}$, $s^{\text{data}}_\sigma=s^p_\sigma+s^q_\sigma$ at every
         $\sigma$. Multiplying by $\sigma^2$ and adding $x$ gives
@@ -748,7 +766,7 @@
     const CONTENT = {
       notation: md`
         <ul>
-          <li>$t\in[0,1]$, with $t=0$ the prior and $t=1$ the target. $X_t=t\,X_1+(1-t)\,X_0$.</li>
+          <li>$t\in[0,1]$, with $t=0$ the prior and $t=1$ the target. $X_t=t\,X_1+(1-t)\,X_0$. The symbol $\sigma$ is reserved for diffusion noise level, not the interpolation weight $1-t$.</li>
           <li>$\pi$: prior distribution of $X_0$. $\mu\propto e^{r}$: Boltzmann target of $p$. $p_{\text{data}}$: data target of $q$.</li>
           <li>$r(x)=-E(x)/T$: reward. $E$ from the MLIP, $T$ temperature.</li>
           <li>$v_t=\mathbb{E}[\dot X_t\mid X_t]$: marginal <strong>velocity</strong>. $s_t=\nabla_x\log\rho_t(x)$: marginal <strong>score</strong> of the time-$t$ marginal $\rho_t$. $u_t$: SDE <strong>drift</strong>.</li>
@@ -799,6 +817,17 @@
             With $D_t=1-t+\gamma t^2$, the velocity and score are read from that drift:</p>`, math: md`$$s_t^p(x)=\frac{t\,u_t^p(x,t)-x}{D_t},\qquad
 v_t^p(x)=\frac{(1-t)\,u_t^p(x,t)+\gamma t\,x}{D_t},\qquad D_t=1-t+\gamma t^2.$$`, proof: PROOFS.gaussianOneHead },
             { html: md`<p>A single loss is enough:</p>`, math: md`$$\mathcal{L}=\mathbb{E}\|u^\theta(X_t,t)-u_{t\mid1}\|^2.$$`, proof: PROOFS.gaussianOneHead }
+          ]
+        },
+        diffusion: {
+          title: "Flow Sampling (p) training - diffusion (Gaussian VE, σ)",
+          intro: md`<p>When the data model is diffusion, the whole pipeline lives on the EDM Gaussian VE process indexed by the noise level $\sigma$, so $p$ is expressed on the <strong>same</strong> process as $q$. Flow Sampling trains a <strong>Boltzmann denoiser</strong> $D^p_\theta(x;\sigma)$ that targets the energy-weighted clean sample, $D^p_\theta(x;\sigma)\approx\mathbb E_{\mu}[X_1\mid X_\sigma=x]$ with $\mu\propto e^r$, using the same EDM preconditioning as $q$. No Boltzmann samples are needed. This is the $\sigma$-image of the two-head $t$-FS, and the Gaussian channel collapses the two heads into one denoiser.</p>`,
+          blocks: [
+            { html: md`<p>EDM-preconditioned Boltzmann denoiser, identical preconditioning to $q$:</p>`, math: md`$$D^p_\theta(x;\sigma)=c_{\text{skip}}(\sigma)\,x+c_{\text{out}}(\sigma)\,F^p_\theta\!\big(c_{\text{in}}(\sigma)\,x;\,c_{\text{noise}}(\sigma)\big).$$`, proof: PROOFS.sigmaFsOneHead },
+            { html: md`<p>The noise-aware Boltzmann score is read by Tweedie, with the clean-limit check:</p>`, math: md`$$s^p_\sigma(x)=\frac{D^p_\theta(x;\sigma)-x}{\sigma^2},\qquad
+s^p_\sigma\;\xrightarrow{\;\sigma\to 0\;}\;\nabla\log\mu=\nabla r=-\nabla E/T.$$`, proof: PROOFS.sigmaFsScore },
+            { html: md`<p>The $t$-FS exposes $s^p_t=\widehat{\nabla r}/t$ on the interpolation bridge. The $\sigma$-FS exposes $s^p_\sigma=(D^p_\theta-x)/\sigma^2$ on the VE bridge. Both are the same noise-aware Boltzmann force, written on the process the data model uses. For the diffusion column the tilt combines like-for-like at each $\sigma$:</p>`, math: md`$$\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda\,s^p_\sigma,\qquad
+\text{product: }\ \tilde s_\sigma=(1+\lambda)\,s^p_\sigma+s^q_\sigma.$$` }
           ]
         }
       },
@@ -1133,7 +1162,7 @@ x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
         ${block.html || ""}
         <div class="math-block">
           <div class="math-body">${block.math}</div>
-          ${proofBlock(block.proof)}
+          ${block.proof ? proofBlock(block.proof) : ""}
         </div>`).join("");
     }
 
@@ -1148,12 +1177,20 @@ x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
         </div>`;
     }
 
-    function pTrainingSteps(prior) {
+    function pTrainingSteps(state) {
+      if (state.fit === "diffusion") {
+        return [
+          "Sample $\sigma$ lognormally, $\ln\sigma\sim\mathcal N(P_{\text{mean}},P_{\text{std}}^2)$.",
+          "Form the Boltzmann VE bridge at level $\sigma$ via the Flow-Sampling objective, energy-based and without Boltzmann samples.",
+          "Train the EDM-preconditioned Boltzmann denoiser $D^p_\theta(x;\sigma)$ toward the energy-weighted posterior mean $\mathbb E_\mu[X_1\mid X_\sigma]$.",
+          "Read $s^p_\sigma=(D^p_\theta(x;\sigma)-x)/\sigma^2$ and use it in $\tilde s_\sigma=s^{\text{data}}_\sigma+\lambda s^p_\sigma$, or $(1+\lambda)s^p_\sigma+s^q_\sigma$ for product."
+        ];
+      }
       const steps = [
         "Sample minibatch times $t\\in(t_{\\min},1)$, prior points $X_0\\sim\\pi$, and Flow-Sampling bridge endpoints for the Boltzmann target $\\mu\\propto e^r$.",
         "Evaluate the MLIP reward gradient $\\nabla r(X_1)=-\\nabla E(X_1)/T$ and use $u_{t\\mid1}=(X_1-X_0)+\\gamma\\nabla r(X_1)$."
       ];
-      if (prior === "gaussian") {
+      if (state.prior === "gaussian") {
         steps.push("Train one head $u_\\theta^p(X_t,t)$ with $\\mathbb{E}\\|u_\\theta^p-u_{t\\mid1}\\|^2$.");
         steps.push("At use time set $D_t=1-t+\\gamma t^2$, $s_t^p=(t u_t^p-x)/D_t$, and $v_t^p=((1-t)u_t^p+\\gamma t x)/D_t$.");
       } else {
@@ -1317,7 +1354,7 @@ x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
         <h2>Section 6 - Case algorithm</h2>
         <div class="algorithm-grid">
           ${algorithmBox("Training algorithm", `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]}`, [
-            ...pTrainingSteps(state.prior),
+            ...pTrainingSteps(state),
             ...qTrainingSteps(state)
           ])}
           ${algorithmBox("Generation algorithm", `${LABELS.inference[state.inference]} · ${statusLabel(resolved.status)}`, generationSteps(state, resolved))}
@@ -1359,7 +1396,9 @@ x\leftarrow x+\sqrt{\hat\sigma^2-\sigma^2}\,\epsilon,\qquad
       const rewardSection = document.getElementById("reward-section");
       rewardSection.innerHTML = md`<h2>Section 0 - Reward-tilted target distribution</h2>${reward.intro}${renderBlocks(reward.blocks)}${reward.outro}`;
 
-      const flow = CONTENT.flowSampling[state.prior];
+      const flow = (state.fit === "diffusion")
+        ? CONTENT.flowSampling.diffusion
+        : CONTENT.flowSampling[state.prior];
       const flowSection = document.getElementById("flow-section");
       flowSection.innerHTML = md`<h2>Section 1 - ${flow.title}</h2>${flow.intro}${renderBlocks(flow.blocks)}`;
 
