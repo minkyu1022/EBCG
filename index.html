@@ -533,8 +533,11 @@
       inference: [
         ["velocity_ode", "velocity ODE"],
         ["drift_sde", "drift SDE"],
-        ["score_sde", "score SDE"],
-        ["smc", "FKC corrector"]
+        ["score_sde", "score SDE"]
+      ],
+      corrector: [
+        ["langevin", "Langevin"],
+        ["fkc", "FKC / SMC"]
       ]
     };
 
@@ -542,7 +545,8 @@
       prior: "non_gaussian",
       data_dist: "pq",
       fit: "stochastic_interpolant",
-      inference: "drift_sde"
+      inference: "drift_sde",
+      corrector: "langevin"
     };
 
     const LABELS = {
@@ -556,9 +560,9 @@
       inference: {
         velocity_ode: "velocity ODE",
         drift_sde: "drift SDE",
-        score_sde: "score SDE",
-        smc: "FKC corrector"
-      }
+        score_sde: "score SDE"
+      },
+      corrector: { langevin: "Langevin corrector", fkc: "FKC corrector" }
     };
 
     const PROOFS = {
@@ -939,12 +943,13 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         },
         drift_sde: {
           title: "Tilted inference - drift SDE",
-          blocks: [
-            { math: md`$$dX=\Big[v_t^{\text{data}}(X)+\frac{\tilde g_t^2}{2}\,\tilde s_t(X)\Big]dt+\tilde g_t\,dW,
-\qquad \tilde s_t=s_t^{\text{data}}+\lambda s_t^p.$$`, proof: PROOFS.driftSde },
-            { html: md`<p>For a non-Gaussian prior, make it exact by adding a <strong>Langevin corrector</strong> at each $t$:</p>`, math: md`$$\text{corrector:}\quad X\leftarrow X+\epsilon\,\tilde s_t(X)+\sqrt{2\epsilon}\,\xi,\quad \xi\sim\mathcal N(0,I),$$`, proof: PROOFS.driftSde }
-          ],
-          outro: md`<p>Free choice of noise level $\tilde g_t$; $\tilde g_t=0$ recovers the velocity ODE. Needs both data velocity and data score.</p>`
+          blocks: [],
+          predictorQ: { math: md`$$dX=\Big[u^q_t+\lambda\,u^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
+\qquad \tilde s_t=s^{\text{data}}_t+\lambda s^p_t.$$`, proof: PROOFS.driftSde },
+          predictorPQ: { math: md`$$dX=\Big[u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
+\qquad \tilde s_t=s^\phi_t+(1+\lambda)s^p_t.$$`, proof: PROOFS.driftSde },
+          langevinBlock: { html: md`<p>For a non-Gaussian prior, make it exact by adding a <strong>Langevin corrector</strong> at each $t$:</p>`, math: md`$$\text{corrector:}\quad X\leftarrow X+\epsilon\,\tilde s_t(X)+\sqrt{2\epsilon}\,\xi,\quad \xi\sim\mathcal N(0,I),$$`, proof: PROOFS.driftSde },
+          outro: md`<p>Transport uses the tilt velocity $\sum_i\beta_i u^i_t$, not $v^{\text{data}}_t$ alone. This is the predictor shared by both correctors below. The bare drift still misses the product-path reweighting, so a corrector pins each marginal to $\tilde\rho_t$. Choose the corrector with the toggle.</p>`
         },
         score_sde: {
           title: "Tilted inference - score SDE",
@@ -953,11 +958,6 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
           ],
           outro: md`<p>Run a few $\tau$-steps at each $t$ while annealing $t:0\to1$. Needs only the tilted score.
           Asymptotically exact for any prior, but slower mixing than drift SDE because there is no ballistic transport.</p>`
-        },
-        smc: {
-          title: "Tilted inference - FKC corrector",
-          blocks: [],
-          outro: ""
         }
       },
       fkc: {
@@ -980,11 +980,10 @@ $$v^i_t=u^i_t+\tfrac{\sigma_t^2}{2}\,s^i_t,\qquad
           proof: PROOFS.fkcPointer
         },
         generalCorrector: {
-          html: md`<p>For two experts with exponents $(\beta_1,\beta_2)$, set $V_t=\sum_i\beta_i v^i_t$. Laplacian terms, $\sigma_t$ terms, and score-norm-squared terms cancel, leaving only velocity-score inner products:</p>`,
+          html: md`<p>For two experts with exponents $(\beta_1,\beta_2)$, use the drift SDE predictor above. Its FKC weight is divergence-free and contains only velocity-score inner products:</p>`,
           math: md`$$\boxed{\,g_t=\beta_1(\beta_1-1)\langle u^1_t,s^1_t\rangle
 +\beta_2(\beta_2-1)\langle u^2_t,s^2_t\rangle
-+\beta_1\beta_2\big(\langle u^1_t,s^2_t\rangle+\langle u^2_t,s^1_t\rangle\big)\,}$$
-$$V_t=\beta_1 u^1_t+\beta_2 u^2_t+\tfrac{\sigma_t^2}{2}\big(\beta_1 s^1_t+\beta_2 s^2_t\big).$$`,
++\beta_1\beta_2\big(\langle u^1_t,s^2_t\rangle+\langle u^2_t,s^1_t\rangle\big)\,}$$`,
           proof: PROOFS.fkcPointer
         },
         caseQ: {
@@ -1093,20 +1092,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
       }
     };
 
-    function resolveInference(prior, data_dist, fit, mode) {
-      if (mode === "smc") {
-        if (fit !== "stochastic_interpolant") {
-          return { status: "infeasible",
-            reason: "FKC corrector needs SI outputs: both velocity and score heads for each expert. This fit does not expose the required pair." };
-        }
-        if (prior !== "non_gaussian") {
-          return { status: "infeasible",
-            reason: "This FKC block is for the non-Gaussian SI case. Gaussian and diffusion cases should use reward-tilt or score-form excess-norm variants instead." };
-        }
-        return { status: "exact",
-          note: "FKC/SMC corrector for non-Gaussian SI. Exact in the particle limit K→∞; weights use only velocity-score inner products from the existing p and q heads." };
-      }
-
+    function resolveInference(prior, data_dist, fit, mode, corrector) {
       if (fit === "diffusion") {
         return {
           status: "approximate",
@@ -1130,11 +1116,19 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
 
       if (mode === "drift_sde") {
         if (!qV || !qS) return { status: "infeasible",
-          reason: "The drift SDE needs both the data velocity v_data (transport) and the data score s_data (to form the tilted score). This fit/prior does not expose both." };
+          reason: "The drift SDE needs both the data velocity and the data score. This fit/prior does not expose both." };
+        if (corrector === "fkc") {
+          if (effPrior !== "non_gaussian" || fit !== "stochastic_interpolant") {
+            return { status: "infeasible",
+              reason: "The FKC corrector here is for the non-Gaussian SI case. It needs both velocity and score heads per expert; Gaussian and diffusion cases use reward-tilt or score-form excess-norm instead." };
+          }
+          return { status: "exact",
+            note: "Drift SDE with FKC corrector. Transport uses the tilt velocity, so the weight is divergence-free and uses only velocity-score inner products. Exact in the particle limit K→∞." };
+        }
         return { status: (effPrior === "gaussian") ? "exact" : "exact_with_corrector",
           note: (effPrior === "gaussian")
             ? "Exact: drift assembles velocity and score with no mismatch."
-            : "Exact only with a Langevin corrector (predictor-corrector). The bare drift transports with v_data not equal to the true tilt velocity; the corrector pins each marginal to the tilt path." };
+            : "Exact with a Langevin corrector. The bare drift transports with the tilt velocity but still misses the product-path reweighting; the corrector pins each marginal to the tilt path." };
       }
 
       if (mode === "score_sde") {
@@ -1172,16 +1166,19 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
         prior: "prior",
         data_dist: "data dist",
         fit: "fit model",
-        inference: "inference"
+        inference: "inference",
+        corrector: "corrector"
       };
       for (const [axis, options] of Object.entries(AXES)) {
         const label = document.createElement("div");
         label.className = "axis-label";
+        label.dataset.axisLabel = axis;
         label.textContent = axisLabels[axis];
         mount.appendChild(label);
 
         const group = document.createElement("div");
         group.className = "button-group";
+        group.dataset.axisGroup = axis;
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", axisLabels[axis]);
         for (const [key, text] of options) {
@@ -1366,10 +1363,6 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
         steps.push("Optionally apply per-step random rotation and translation augmentation as in AF3 / Boltz.");
       } else if (state.fit === "diffusion") {
         steps.push("At each $\\sigma$, run annealed Langevin updates $dx=\\tilde s_\\sigma(x)d\\tau+\\sqrt2dW$.");
-      } else if (state.inference === "smc") {
-        steps.push("Propagate particles with the FKC drift $V_t$ assembled from the SI velocity and score heads.");
-        steps.push("Accumulate log weights $w_t^{(k)}\\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\\Delta t$ using the case-specific FKC inner-product formula.");
-        steps.push("Systematically resample within fixed-$N$ bins using normalized weights $\\exp(w_t^{(k)})/\\sum_j\\exp(w_t^{(j)})$.");
       } else if (state.inference === "velocity_ode") {
         if (state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching") {
           steps.push("Integrate $dX/dt=v_t^p+(1-t)s_t^q/t+\\lambda\\gamma\\widehat{\\nabla r}$.");
@@ -1377,8 +1370,12 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
           steps.push("Integrate $dX/dt=v_t^{\\text{data}}+\\lambda\\gamma\\widehat{\\nabla r}$.");
         }
       } else if (state.inference === "drift_sde") {
-        steps.push("Run predictor steps $dX=[v_t^{\\text{data}}+(\\tilde g_t^2/2)\\tilde s_t]dt+\\tilde g_t dW$.");
-        if (resolved.status === "exact_with_corrector") {
+        const tv = state.data_dist === "pq" ? "u_t^\\phi+(1+\\lambda)u_t^p" : "u_t^q+\\lambda u_t^p";
+        steps.push(`Run predictor steps $dX=[${tv}+(\\tilde g_t^2/2)\\tilde s_t]dt+\\tilde g_t dW$.`);
+        if (state.corrector === "fkc") {
+          steps.push("Accumulate log weights $w_t^{(k)}\\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\\Delta t$ using the case-specific FKC inner-product formula.");
+          steps.push("Systematically resample within fixed-$N$ bins by $\\exp(w_t^{(k)})/\\sum_j\\exp(w_t^{(j)})$, only on the active interval $[t_{\\min},t_{\\max}]$.");
+        } else if (resolved.status === "exact_with_corrector") {
           steps.push("After each predictor step, run Langevin corrector updates $X\\leftarrow X+\\epsilon\\tilde s_t(X)+\\sqrt{2\\epsilon}\\xi$ at fixed $t$.");
         }
       } else {
@@ -1398,7 +1395,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
             ...pTrainingSteps(state),
             ...qTrainingSteps(state)
           ])}
-          ${algorithmBox("Generation algorithm", `${LABELS.inference[state.inference]} · ${statusLabel(resolved.status)}`, generationSteps(state, resolved))}
+          ${algorithmBox("Generation algorithm", `${LABELS.inference[state.inference]}${state.inference === "drift_sde" ? " · " + LABELS.corrector[state.corrector] : ""} · ${statusLabel(resolved.status)}`, generationSteps(state, resolved))}
         </div>`;
     }
 
@@ -1424,17 +1421,25 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
 
     function render() {
       if (state.fit === "diffusion") { state.prior = "gaussian"; state.data_dist = "q"; }
+      const corrFeasible = state.inference === "drift_sde" && state.prior === "non_gaussian" && state.fit === "stochastic_interpolant";
+      if (state.inference === "drift_sde" && state.corrector === "fkc" && !corrFeasible) {
+        state.corrector = "langevin";
+        writeHash();
+      }
+      for (const node of document.querySelectorAll("[data-axis-label='corrector'], [data-axis-group='corrector']")) {
+        node.style.display = state.inference === "drift_sde" ? "" : "none";
+      }
       for (const button of document.querySelectorAll(".choice")) {
         const disabled =
           (state.fit === "diffusion" && button.dataset.axis === "prior" && button.dataset.value === "non_gaussian") ||
           (state.fit === "diffusion" && button.dataset.axis === "data_dist" && button.dataset.value === "pq") ||
-          (button.dataset.axis === "inference" && button.dataset.value === "smc" && state.fit !== "stochastic_interpolant");
+          (button.dataset.axis === "corrector" && button.dataset.value === "fkc" && !corrFeasible);
         button.disabled = disabled;
         button.setAttribute("aria-pressed", String(state[button.dataset.axis] === button.dataset.value));
       }
 
       document.getElementById("case-title").textContent =
-        `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}${state.fit === "diffusion" ? " · diffusion uses Gaussian VE prior and q only" : ""}`;
+        `${LABELS.prior[state.prior]} · ${LABELS.data_dist[state.data_dist]} · ${LABELS.fit[state.fit]} · ${LABELS.inference[state.inference]}${state.inference === "drift_sde" ? " · " + LABELS.corrector[state.corrector] : ""}${state.fit === "diffusion" ? " · diffusion uses Gaussian VE prior and q only" : ""}`;
 
       const reward = CONTENT.rewardTiltedTarget;
       const rewardSection = document.getElementById("reward-section");
@@ -1456,7 +1461,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
       const caveat = "";
       dataSection.innerHTML = md`<h2>Section 2 - ${data.title}</h2>${caveat}${data.intro}${renderBlocks(data.blocks)}${data.outro || ""}`;
 
-      const resolved = resolveInference(state.prior, state.data_dist, state.fit, state.inference);
+      const resolved = resolveInference(state.prior, state.data_dist, state.fit, state.inference, state.corrector);
       const inference = CONTENT.inference[state.inference];
       const inferenceSection = document.getElementById("inference-section");
       const statusHtml = md`<div class="pill-row"><span class="status ${resolved.status}">${statusLabel(resolved.status)}</span></div>`;
@@ -1467,8 +1472,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
         ? md`<div class="note cross-link">Score SDE is coarse-grained MD on the tilted force field $\tilde s_t$; see Section 5.</div>`
         : "";
       const fkc = CONTENT.fkc;
-      const fkcBlocks = [
-        fkc.notation,
+      const fkcCorrectorBlocks = [
         fkc.twoMarginals,
         fkc.residualPrinciple,
         fkc.generalCorrector,
@@ -1491,18 +1495,21 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
         modeBlocks.push(diffusionModeMap[state.inference]);
       } else if (usePqGaussianScore && state.inference === "velocity_ode") {
         modeBlocks.push(CONTENT.inference.velocity_ode_pq_gaussian);
-      } else if (usePqGaussianScore && state.inference === "drift_sde") {
-        modeBlocks.push(CONTENT.inference.drift_sde_pq_gaussian);
+      } else if (state.inference === "drift_sde") {
+        modeBlocks.push(state.data_dist === "pq" ? CONTENT.inference.drift_sde.predictorPQ : CONTENT.inference.drift_sde.predictorQ);
       } else {
         modeBlocks.push(...inference.blocks);
       }
+      const correctorBody = state.inference === "drift_sde" && resolved.status !== "infeasible"
+        ? state.corrector === "fkc"
+          ? md`${CONTENT.inference.drift_sde.outro}${renderBlocks(fkcCorrectorBlocks)}${fkc.scoreFormNote}${fkc.comparison}${fkc.practical}`
+          : md`${CONTENT.inference.drift_sde.outro}${renderBlocks([CONTENT.inference.drift_sde.langevinBlock])}`
+        : inference.outro;
       const body = resolved.status === "infeasible"
         ? md`${message}${scoreSdeLink}`
-        : state.inference === "smc"
-        ? md`${statusHtml}${message}${renderBlocks(fkcBlocks)}${fkc.scoreFormNote}${fkc.comparison}${fkc.practical}`
         : state.fit === "diffusion"
         ? md`${statusHtml}${message}${renderBlocks([CONTENT.inference.diffusionGuidanceBlock])}${renderBlocks(modeBlocks)}`
-        : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([assemblyBlock])}${renderBlocks(modeBlocks)}${inference.outro}`;
+        : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([assemblyBlock])}${renderBlocks(modeBlocks)}${correctorBody}`;
       inferenceSection.innerHTML = md`<h2>Section 3 - ${inference.title}</h2>${resolved.status === "infeasible" ? statusHtml : ""}${body}`;
 
       const guidance = CONTENT.guidanceConnection;
