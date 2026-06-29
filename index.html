@@ -533,7 +533,8 @@
       inference: [
         ["velocity_ode", "velocity ODE"],
         ["drift_sde", "drift SDE"],
-        ["score_sde", "score SDE"]
+        ["score_sde", "score SDE"],
+        ["smc", "FKC corrector"]
       ]
     };
 
@@ -555,7 +556,8 @@
       inference: {
         velocity_ode: "velocity ODE",
         drift_sde: "drift SDE",
-        score_sde: "score SDE"
+        score_sde: "score SDE",
+        smc: "FKC corrector"
       }
     };
 
@@ -745,7 +747,8 @@
         parameterization is needed for stable MD with the extracted force, while an unconstrained vector score
         destabilizes it. The same applies to EBCG's score-SDE inference, which is dynamics on $\tilde s_t$. A
         conservative $s^p$ also makes $p$ an energy-based model with energy $\mathcal{E}^p_\theta$, matching
-        the EBM that EnFlow guides with. &#8718;</p>`
+        the EBM that EnFlow guides with. &#8718;</p>`,
+      fkcPointer: md`<p>FKC App A의 Feynman-Kac 공식과 Section 3의 항별 매칭으로 유도. &#8718;</p>`
     };
 
     const CONTENT = {
@@ -950,7 +953,75 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
           ],
           outro: md`<p>Run a few $\tau$-steps at each $t$ while annealing $t:0\to1$. Needs only the tilted score.
           Asymptotically exact for any prior, but slower mixing than drift SDE because there is no ballistic transport.</p>`
+        },
+        smc: {
+          title: "Tilted inference - FKC corrector",
+          blocks: [],
+          outro: ""
         }
+      },
+      fkc: {
+        notation: {
+          html: md`<p>$t=0$ is the prior and $t=1$ is the data end. For expert $i$, let $q^i_t$ be its noised marginal. SI exposes velocity and score heads. All experts share the same interpolant schedule and prior $\rho_0$:</p>`,
+          math: md`$$u^i_t(x)=\mathbb{E}[\dot x_t\mid x_t=x],\qquad s^i_t(x)=\nabla\log q^i_t(x).$$
+$$v^i_t=u^i_t+\tfrac{\sigma_t^2}{2}\,s^i_t,\qquad
+\partial_t q^i_t=-\nabla\!\cdot\!\big(q^i_t v^i_t\big)+\tfrac{\sigma_t^2}{2}\Delta q^i_t.$$`,
+          proof: PROOFS.fkcPointer
+        },
+        twoMarginals: {
+          html: md`<p>The noised target $\pi_t$ is the endpoint $\tilde p_1=p_{\text{data}}e^{\lambda r}$ noised to time $t$. The product-of-marginals path is instead:</p>`,
+          math: md`$$\tilde\rho_t\;\propto\;\prod_i\big(q^i_t\big)^{\beta_i}.$$`,
+          proof: PROOFS.fkcPointer
+        },
+        residualPrinciple: {
+          html: md`<p>A weighted SDE with drift $V_t$, diffusion $\sigma_t$, and weight $g_t$ has marginal PDE:</p>`,
+          math: md`$$\partial_t p_t=-\nabla\!\cdot\!\big(p_t V_t\big)+\tfrac{\sigma_t^2}{2}\Delta p_t
++p_t\big(g_t-\mathbb{E}_{p_t}g_t\big).$$`,
+          proof: PROOFS.fkcPointer
+        },
+        generalCorrector: {
+          html: md`<p>For two experts with exponents $(\beta_1,\beta_2)$, set $V_t=\sum_i\beta_i v^i_t$. Laplacian terms, $\sigma_t$ terms, and score-norm-squared terms cancel, leaving only velocity-score inner products:</p>`,
+          math: md`$$\boxed{\,g_t=\beta_1(\beta_1-1)\langle u^1_t,s^1_t\rangle
++\beta_2(\beta_2-1)\langle u^2_t,s^2_t\rangle
++\beta_1\beta_2\big(\langle u^1_t,s^2_t\rangle+\langle u^2_t,s^1_t\rangle\big)\,}$$
+$$V_t=\beta_1 u^1_t+\beta_2 u^2_t+\tfrac{\sigma_t^2}{2}\big(\beta_1 s^1_t+\beta_2 s^2_t\big).$$`,
+          proof: PROOFS.fkcPointer
+        },
+        caseQ: {
+          html: md`<p>Standalone $q$: experts are $(q,\mu)$ with exponents $(1,\lambda)$.</p>`,
+          math: md`$$g_t=\lambda(\lambda-1)\,\langle u^p_t,s^p_t\rangle
++\lambda\big(\langle u^q_t,s^p_t\rangle+\langle u^p_t,s^{\text{data}}_t\rangle\big),$$
+$$V_t=u^q_t+\lambda\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^{\text{data}}_t+\lambda\,s^p_t\big).$$`,
+          proof: PROOFS.fkcPointer
+        },
+        casePQ: {
+          html: md`<p>Product $p\cdot q$: since $p_{\text{data}}=\mu\cdot q_\phi$, the path is $\tilde\rho_t\propto(q_\phi)_t\mu_t^{1+\lambda}$, with exponents $(1,1+\lambda)$.</p>`,
+          math: md`$$g_t=\lambda(1+\lambda)\,\langle u^p_t,s^p_t\rangle
++(1+\lambda)\big(\langle u^\phi_t,s^p_t\rangle+\langle u^p_t,s^\phi_t\rangle\big),$$
+$$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)\,s^p_t\big).$$`,
+          proof: PROOFS.fkcPointer
+        },
+        smcEstimator: {
+          html: md`<p>Accumulate log weights over the active interval and resample by the normalized weights:</p>`,
+          math: md`$$w_t^{(k)}=\int_{t_{\min}}^{t} g_s\big(x_s^{(k)}\big)\,ds,\qquad
+\mathbb{E}_{\tilde\rho_t}[\phi]\approx\sum_{k}
+\frac{e^{w_t^{(k)}}}{\sum_j e^{w_t^{(j)}}}\,\phi\big(x_t^{(k)}\big).$$`,
+          proof: PROOFS.fkcPointer
+        },
+        scoreFormNote: md`
+          <div class="note">
+            <p><strong>Score-form note.</strong> The excess-norm form is recovered only when the velocity has a shared linear drift $u^i_t=-f_t+\tfrac{\sigma_t^2}{2}s^i_t$ and the drift convention is changed. For non-Gaussian SI, velocity depends on the expert denoiser, so use the velocity-head form above, not the score-only excess-norm shortcut.</p>
+            <div>$$g_t=\tfrac{\sigma_t^2}{2}\Big(\|S_t\|^2-\sum_i\beta_i\|s^i_t\|^2\Big)
++\Big(\sum_i\beta_i-1\Big)\langle\nabla,f_t\rangle,\qquad S_t=\sum_i\beta_i s^i_t.$$</div>
+          </div>`,
+        comparison: md`
+          <p><strong>Langevin vs SMC.</strong> Langevin corrector fixes a time $t$ and moves each particle with dynamics whose stationary marginal is the target. It is particle-wise and exact only as corrector steps go to infinity. SMC/FKC does not move particles; it accumulates $g_t$ weights and resamples across the batch. It is consistent as $K\to\infty$. The strongest practical combination is Langevin predictor-corrector plus FKC reweighting.</p>`,
+        practical: md`
+          <div class="note">
+            <p><strong>Practical conditions.</strong> Start from $\rho_0$ and keep $g_t\equiv0$ outside an active interval $[t_{\min},t_{\max}]$ when $\rho_0^{\sum_i\beta_i}$ is hard to sample. Resample only within fixed atom-count bins:</p>
+            <div>$$\text{resample within }\{x^{(k)}:N^{(k)}=N\}\ \text{for each }N.$$</div>
+            <p>Control weight variance by temperature scaling $g_t\leftarrow g_t/T$, clipping high quantiles, and using $t_{\max}<1$ when scores blow up near the data end.</p>
+          </div>`
       },
       guidanceConnection: {
         intro: md`
@@ -1023,6 +1094,19 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
     };
 
     function resolveInference(prior, data_dist, fit, mode) {
+      if (mode === "smc") {
+        if (fit !== "stochastic_interpolant") {
+          return { status: "infeasible",
+            reason: "FKC corrector needs SI outputs: both velocity and score heads for each expert. This fit does not expose the required pair." };
+        }
+        if (prior !== "non_gaussian") {
+          return { status: "infeasible",
+            reason: "This FKC block is for the non-Gaussian SI case. Gaussian and diffusion cases should use reward-tilt or score-form excess-norm variants instead." };
+        }
+        return { status: "exact",
+          note: "FKC/SMC corrector for non-Gaussian SI. Exact in the particle limit K→∞; weights use only velocity-score inner products from the existing p and q heads." };
+      }
+
       if (fit === "diffusion") {
         return {
           status: "approximate",
@@ -1282,6 +1366,10 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         steps.push("Optionally apply per-step random rotation and translation augmentation as in AF3 / Boltz.");
       } else if (state.fit === "diffusion") {
         steps.push("At each $\\sigma$, run annealed Langevin updates $dx=\\tilde s_\\sigma(x)d\\tau+\\sqrt2dW$.");
+      } else if (state.inference === "smc") {
+        steps.push("Propagate particles with the FKC drift $V_t$ assembled from the SI velocity and score heads.");
+        steps.push("Accumulate log weights $w_t^{(k)}\\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\\Delta t$ using the case-specific FKC inner-product formula.");
+        steps.push("Systematically resample within fixed-$N$ bins using normalized weights $\\exp(w_t^{(k)})/\\sum_j\\exp(w_t^{(j)})$.");
       } else if (state.inference === "velocity_ode") {
         if (state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching") {
           steps.push("Integrate $dX/dt=v_t^p+(1-t)s_t^q/t+\\lambda\\gamma\\widehat{\\nabla r}$.");
@@ -1339,7 +1427,8 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       for (const button of document.querySelectorAll(".choice")) {
         const disabled =
           (state.fit === "diffusion" && button.dataset.axis === "prior" && button.dataset.value === "non_gaussian") ||
-          (state.fit === "diffusion" && button.dataset.axis === "data_dist" && button.dataset.value === "pq");
+          (state.fit === "diffusion" && button.dataset.axis === "data_dist" && button.dataset.value === "pq") ||
+          (button.dataset.axis === "inference" && button.dataset.value === "smc" && state.fit !== "stochastic_interpolant");
         button.disabled = disabled;
         button.setAttribute("aria-pressed", String(state[button.dataset.axis] === button.dataset.value));
       }
@@ -1377,6 +1466,15 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       const scoreSdeLink = state.inference === "score_sde"
         ? md`<div class="note cross-link">Score SDE is coarse-grained MD on the tilted force field $\tilde s_t$; see Section 5.</div>`
         : "";
+      const fkc = CONTENT.fkc;
+      const fkcBlocks = [
+        fkc.notation,
+        fkc.twoMarginals,
+        fkc.residualPrinciple,
+        fkc.generalCorrector,
+        state.data_dist === "pq" ? fkc.casePQ : fkc.caseQ,
+        fkc.smcEstimator
+      ];
       const usePqGaussianScore = state.prior === "gaussian" && state.data_dist === "pq" && state.fit === "flow_matching";
       const diffusionModeMap = {
         velocity_ode: CONTENT.inference.diffusion_velocity_ode,
@@ -1400,6 +1498,8 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       }
       const body = resolved.status === "infeasible"
         ? md`${message}${scoreSdeLink}`
+        : state.inference === "smc"
+        ? md`${statusHtml}${message}${renderBlocks(fkcBlocks)}${fkc.scoreFormNote}${fkc.comparison}${fkc.practical}`
         : state.fit === "diffusion"
         ? md`${statusHtml}${message}${renderBlocks([CONTENT.inference.diffusionGuidanceBlock])}${renderBlocks(modeBlocks)}`
         : md`${statusHtml}${message}${scoreSdeLink}${renderBlocks(CONTENT.inference.commonBlocks)}${renderBlocks([assemblyBlock])}${renderBlocks(modeBlocks)}${inference.outro}`;
