@@ -323,7 +323,30 @@
     </section>
 
     <section>
-      <div class="section-head"><span class="section-no">02</span><h2>Predictor</h2></div>
+      <div class="section-head"><span class="section-no">02</span><h2>Flow Sampling</h2></div>
+      <p>The Boltzmann expert $\bol{\pi\propto e^r}$ is not trained from equilibrium samples. It is trained from the MLIP reward by Flow Sampling. With the non-Gaussian prior bridge $X_t=tX_1+(1-t)X_0$ and $g_t^2=2\gamma t$, the reward-bearing conditional drift target is:</p>
+      <div class="eq amber">$$\bol{u_{t\mid1}^{\pi}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1)},\qquad \nabla r(X_1)=-\nabla E(X_1)/T.$$</div>
+      <p>Because the prior is non-Gaussian, a single drift head cannot recover both velocity and score. Flow Sampling therefore uses two heads.</p>
+      <div class="eq amber">$$\bol{\hat x_1^\pi(x,t)\approx\mathbb E[X_1\mid X_t=x]},\qquad
+\bol{\widehat{\nabla r}(x,t)\approx\mathbb E[\nabla r(X_1)\mid X_t=x]}.$$</div>
+      <div class="eq amber">$$\bol{\mathcal L_{\text{den}}=\mathbb E\|\hat x_1^\pi(X_t,t)-X_1\|^2},\qquad
+\bol{\mathcal L_{\nabla r}=\mathbb E\|\widehat{\nabla r}(X_t,t)-\nabla r(X_1)\|^2}.$$</div>
+      <p>The two learned outputs are then converted into the Boltzmann velocity and score used by the predictor-corrector.</p>
+      <div class="eq amber">$$\bol{u^\pi_t(x)=\frac{\hat x_1^\pi(x,t)-x}{1-t}},\qquad
+\bol{s^\pi_t(x)=\frac{\widehat{\nabla r}(x,t)}{t}}.$$</div>
+      <details>
+        <summary>Why the reward appears in the score</summary>
+        <div class="detail-body">
+          <p>Taking the conditional expectation of the Flow-Sampling target gives the SDE drift
+          $b^\pi_t=u^\pi_t+\gamma\widehat{\nabla r}$. The Fokker-Planck identity gives
+          $b^\pi_t=u^\pi_t+\tfrac{g_t^2}{2}s^\pi_t$. Since $g_t^2=2\gamma t$, matching the two expressions yields
+          $s^\pi_t=\widehat{\nabla r}/t$.</p>
+        </div>
+      </details>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="section-no">03</span><h2>Predictor</h2></div>
       <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
       <div class="eq">$$\mathrm dX=\Big[\,\tilde u_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
       <div class="eq">$$\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
@@ -337,7 +360,7 @@
     </section>
 
     <section>
-      <div class="section-head"><span class="section-no">03</span><h2>Corrector</h2></div>
+      <div class="section-head"><span class="section-no">04</span><h2>Corrector</h2></div>
       <p>Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
       <h3 class="tag">Langevin</h3>
       <div class="eq">$$X\;\leftarrow\;X+\delta\,\tilde s_t(X)+\sqrt{2\delta}\;\xi,\qquad \xi\sim\mathcal N(0,I).$$</div>
@@ -376,9 +399,11 @@
     </section>
 
     <section class="algorithm">
-      <div class="section-head"><span class="section-no">04</span><h2>Generation Algorithm</h2></div>
+      <div class="section-head"><span class="section-no">05</span><h2>Generation Algorithm</h2></div>
       <p><strong>Input.</strong> Learned $\dat{(u^p,s^p)}$, learned $\bol{(u^\pi,s^\pi)}$, tilt $\lambda$, steps $N$, diffusion $\sigma_t$, and corrector choice.</p>
       <ol>
+        <li>Train the Boltzmann expert by Flow Sampling: regress $\bol{\hat x_1^\pi}$ and $\bol{\widehat{\nabla r}}$, then read $\bol{u^\pi_t}$ and $\bol{s^\pi_t=\widehat{\nabla r}/t}$.</li>
+        <li>Train the SI data expert to expose $\dat{u^p_t}$ and $\dat{s^p_t}$.</li>
         <li>Sample the prior: $X\sim\rho_0$.</li>
         <li>Evaluate heads and assemble $\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t}$ and $\tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}$.</li>
         <li>Predictor step: $X\mathrel{+}=[\tilde u_t+\tfrac{\sigma_t^2}{2}\tilde s_t]\Delta t+\sigma_t\sqrt{\Delta t}\xi$.</li>
