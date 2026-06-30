@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Non-Gaussian SI Drift SDE Algorithm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;650;750&family=Spectral:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/katex/katex.min.css">
+  <script defer src="../assets/katex/katex.min.js"></script>
+  <script defer src="../assets/katex/contrib/auto-render.min.js"></script>
+  <style>
+    :root {
+      --paper: #eef1f4;
+      --paper-2: #fbfcfd;
+      --ink: #15181d;
+      --muted: #5a626d;
+      --faint: #8b929c;
+      --rule: #d4dae1;
+      --data: #2f5aa8;
+      --boltz: #bd6526;
+      --panel: #14181e;
+      --panel-ink: #e9edf2;
+      --shadow: 0 18px 45px rgba(21, 24, 29, 0.08);
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .page {
+      width: min(100%, 790px);
+      margin: 0 auto;
+      padding: 42px 26px 56px;
+    }
+
+    header {
+      padding: 16px 0 26px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .eyebrow, .section-no, .tag {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--faint);
+      font-weight: 600;
+    }
+
+    h1, h2 {
+      font-family: Spectral, Georgia, "Times New Roman", serif;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 8px 0 12px;
+      font-size: clamp(2.25rem, 8vw, 4.5rem);
+      line-height: 0.95;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 1.06rem;
+    }
+
+    .legend {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      margin: 22px 0 28px;
+      padding: 15px;
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      background: rgba(251, 252, 253, 0.94);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 7px 12px;
+      align-items: start;
+    }
+
+    .legend-key {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .legend-desc {
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      margin-right: 0.35rem;
+      vertical-align: -0.05rem;
+    }
+
+    .swatch.data { background: var(--data); }
+    .swatch.boltz { background: var(--boltz); }
+
+    section {
+      padding: 28px 0 30px;
+      border-top: 1px solid var(--rule);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.55rem, 4vw, 2.15rem);
+      line-height: 1.05;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--ink);
+    }
+
+    .note {
+      margin: 14px 0 17px;
+      padding: 13px 15px;
+      border: 1px solid var(--rule);
+      border-left: 4px solid var(--faint);
+      background: var(--paper-2);
+      color: var(--muted);
+    }
+
+    .note.amber {
+      border-left-color: var(--boltz);
+    }
+
+    .eq {
+      margin: 14px 0 18px;
+      border: 1px solid var(--rule);
+      border-left: 5px solid var(--ink);
+      border-radius: 8px;
+      background: var(--paper-2);
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 14px 16px 10px;
+    }
+
+    .eq.amber {
+      border-left-color: var(--boltz);
+    }
+
+    .eq.data {
+      border-left-color: var(--data);
+    }
+
+    .katex-display {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 4px;
+    }
+
+    details {
+      margin: 14px 0 18px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--paper-2);
+      overflow: hidden;
+    }
+
+    summary {
+      min-height: 42px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 650;
+      color: var(--ink);
+      list-style-position: inside;
+    }
+
+    .detail-body {
+      padding: 0 15px 15px;
+      color: var(--muted);
+    }
+
+    .algorithm {
+      margin-top: 20px;
+      padding: 22px;
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--panel-ink);
+      box-shadow: var(--shadow);
+    }
+
+    .algorithm h2,
+    .algorithm p,
+    .algorithm li {
+      color: var(--panel-ink);
+    }
+
+    .algorithm ol {
+      margin: 14px 0 0;
+      padding-left: 22px;
+    }
+
+    .algorithm li + li {
+      margin-top: 10px;
+    }
+
+    footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    a {
+      color: var(--data);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    @media (max-width: 620px) {
+      .page {
+        padding: 28px 16px 42px;
+      }
+
+      .legend {
+        position: static;
+      }
+
+      .legend-grid {
+        grid-template-columns: 1fr;
+        gap: 3px 0;
+      }
+
+      .legend-desc + .legend-key {
+        margin-top: 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .page {
+        animation: fade-in 260ms ease-out both;
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">Energy-Based Classifier Guidance</div>
+      <h1>Non-Gaussian SI Drift SDE</h1>
+      <p class="subtitle">Fixed-case derivation for sampling the reward-tilted target $\dat{p}\,\bol{\pi}^{\lambda}$ with stochastic interpolant experts and a drift-SDE predictor-corrector.</p>
+    </header>
+
+    <aside class="legend" aria-label="Notation legend">
+      <div class="legend-grid">
+        <div class="legend-key"><span class="swatch data"></span>$p$</div>
+        <div class="legend-desc">data distribution. The generative model learns marginal $\dat{p_t}$, velocity $\dat{u^p_t}$, and score $\dat{s^p_t}$.</div>
+        <div class="legend-key"><span class="swatch boltz"></span>$\pi$</div>
+        <div class="legend-desc">Boltzmann distribution $\bol{\pi}\propto e^r$, reward $r=-E/T$ from the MLIP. Flow Sampling learns marginal $\bol{\pi_t}$, velocity $\bol{u^\pi_t}$, and score $\bol{s^\pi_t}$.</div>
+        <div class="legend-key">$u^i_t$</div>
+        <div class="legend-desc">expert velocity $u^i_t=\mathbb{E}[\dot X_t\mid X_t]$.</div>
+        <div class="legend-key">$s^i_t$</div>
+        <div class="legend-desc">expert score $s^i_t=\nabla\log(\cdot)_t$.</div>
+        <div class="legend-key">$\tilde s_t$</div>
+        <div class="legend-desc">tilted score $\tilde s_t=\dat{s^p_t}+\lambda\bol{s^\pi_t}$.</div>
+        <div class="legend-key">$\tilde u_t$</div>
+        <div class="legend-desc">tilt velocity $\tilde u_t=\dat{u^p_t}+\lambda\bol{u^\pi_t}$.</div>
+        <div class="legend-key">$\rho_t$</div>
+        <div class="legend-desc">sampling path $\rho_t\propto \dat{p_t}\,\bol{\pi_t}^{\lambda}$.</div>
+        <div class="legend-key">$\lambda,\sigma_t$</div>
+        <div class="legend-desc">tilt strength and sampling diffusion.</div>
+        <div class="legend-key">$\hat x_1,\widehat{\nabla r}$</div>
+        <div class="legend-desc">learned heads: denoiser and reward-gradient head.</div>
+        <div class="legend-key">$t:0\to1$</div>
+        <div class="legend-desc">$t=0$ prior $\rho_0$, $t=1$ data end.</div>
+      </div>
+    </aside>
+
+    <section>
+      <div class="section-head"><span class="section-no">00</span><h2>Target</h2></div>
+      <div class="eq">$$\rho_1\;\propto\;\dat{p}\,\bol{\pi}^{\lambda}\;\propto\;\dat{p}\,e^{\lambda r}.$$</div>
+      <div class="eq">$$\rho_t\;\propto\;\dat{p_t}\,\bol{\pi_t}^{\lambda},\qquad \tilde s_t=\nabla\log\rho_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
+      <div class="note">
+        Noising does not commute with multiplication, so $\rho_t$ is not the true noised reward-tilted endpoint at intermediate $t$. It matches at $t=1$. This product-of-marginals path is the computable path because the trained experts expose $\dat{s^p_t}$ and $\bol{s^\pi_t}$.
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="section-no">01</span><h2>Models</h2></div>
+      <p>The SI data model exposes $\dat{(u^p_t,s^p_t)}$. The Flow-Sampling Boltzmann model exposes $\bol{(u^\pi_t,s^\pi_t)}$ through its two heads. No target samples from $\rho_1$ are required, and the corrector below does not require estimating a velocity divergence.</p>
+      <div class="eq data">$$\dat{u^p_t(x)=\mathbb E[\dot X_t\mid X_t=x]},\qquad \dat{s^p_t(x)=\nabla\log p_t(x)}.$$</div>
+      <div class="eq amber">$$\bol{s^\pi_t=\widehat{\nabla r}/t},\qquad \bol{u^\pi_t=v^\pi_t+\tfrac{g_t^2}{2}s^\pi_t}.$$</div>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="section-no">02</span><h2>Predictor</h2></div>
+      <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
+      <div class="eq">$$\mathrm dX=\Big[\,\tilde u_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
+      <div class="eq">$$\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
+      <details>
+        <summary>Predictor derivation</summary>
+        <div class="detail-body">
+          <div class="eq">$$g_t=\langle\tilde s_t,W_t\rangle-\sum_i\beta_i\langle s^i_t,u^i_t\rangle+\nabla\!\cdot(W_t-U_t),\qquad U_t=\textstyle\sum_i\beta_i u^i_t.$$</div>
+          <p>The divergence term $\nabla\!\cdot(W_t-U_t)$ disappears only when $W_t=U_t$, i.e. when the transport is the tilt velocity. Other transports leave a velocity-divergence term in the weight and require a trace estimator.</p>
+        </div>
+      </details>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="section-no">03</span><h2>Corrector</h2></div>
+      <p>Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
+      <h3 class="tag">Langevin</h3>
+      <div class="eq">$$X\;\leftarrow\;X+\delta\,\tilde s_t(X)+\sqrt{2\delta}\;\xi,\qquad \xi\sim\mathcal N(0,I).$$</div>
+      <p>The stationary distribution is $\rho_t$ because the drift is $\tilde s_t=\nabla\log\rho_t$. It is particle-wise and exact in the infinite-corrector-step limit.</p>
+      <details>
+        <summary>Langevin invariance</summary>
+        <div class="detail-body">
+          <p>Overdamped Langevin with drift $\nabla\log\rho_t$ and diffusion $\sqrt2$ has invariant density $\rho_t$. Frozen-$t$ corrector steps therefore relax particles toward the desired marginal.</p>
+        </div>
+      </details>
+
+      <h3 class="tag">FKC / SMC</h3>
+      <div class="note amber">
+        The predictor uses tilt-velocity transport, so the Feynman-Kac weight has no divergence estimator and depends only on velocity-score inner products.
+      </div>
+      <div class="eq amber">$$g_t=\lambda(\lambda-1)\,\langle \bol{u^\pi_t},\bol{s^\pi_t}\rangle+\lambda\big(\langle \dat{u^p_t},\bol{s^\pi_t}\rangle+\langle \bol{u^\pi_t},\dat{s^p_t}\rangle\big).$$</div>
+      <div class="eq amber">$$w_t^{(k)}=\!\int_{t_{\min}}^{t}\! g_s\big(x^{(k)}_s\big)\,\mathrm ds,\qquad \mathbb{E}_{\rho_t}[\phi]\approx\sum_k\frac{e^{w_t^{(k)}}}{\sum_j e^{w_t^{(j)}}}\,\phi\big(x^{(k)}_t\big).$$</div>
+      <div class="note">
+        Resample only on the active interval $[t_{\min},t_{\max}]$, only within fixed atom-count bins, and temper or clip weights for large $\lambda$ because $\|s^\pi_t\|$ enters quadratically.
+      </div>
+      <details>
+        <summary>PDE matching derivation</summary>
+        <div class="detail-body">
+          <p>Step 1, each marginal.</p>
+          <div class="eq">$$\partial_t\log(\cdot)^i_t=-\langle s^i_t,u^i_t\rangle-\nabla\!\cdot u^i_t.$$</div>
+          <p>Step 2, target path. Exponents $(\beta_p,\beta_\pi)=(1,\lambda)$, with the normalizer removed by mean subtraction.</p>
+          <div class="eq">$$B:=\partial_t\log\rho_t\big|_{\text{non-norm}}=-\sum_i\beta_i\langle s^i_t,u^i_t\rangle-\nabla\!\cdot U_t,\qquad U_t=\textstyle\sum_i\beta_i u^i_t.$$</div>
+          <p>Step 3, SDE rate. Drift $V_t=U_t+\tfrac{\sigma_t^2}{2}\tilde s_t$, diffusion $\sigma_t$.</p>
+          <div class="eq">$$A=-\langle\tilde s_t,V_t\rangle-\nabla\!\cdot V_t+\tfrac{\sigma_t^2}{2}\big(\Delta\log\rho_t+\|\tilde s_t\|^2\big).$$</div>
+          <p>After substituting $V_t$, all $\sigma_t^2$ and Laplacian terms cancel: $A=-\langle\tilde s_t,U_t\rangle-\nabla\!\cdot U_t$.</p>
+          <p>Step 4, residual weight.</p>
+          <div class="eq">$$g_t=B-A=\langle\tilde s_t,U_t\rangle-\sum_i\beta_i\langle s^i_t,u^i_t\rangle.$$</div>
+          <p>Expanding $\langle\tilde s_t,U_t\rangle=\sum_{i,j}\beta_i\beta_j\langle s^j_t,u^i_t\rangle$ and setting $(\beta_p,\beta_\pi)=(1,\lambda)$ gives the boxed FKC weight. The diagonal data term vanishes because $\beta_p(\beta_p-1)=0$.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="algorithm">
+      <div class="section-head"><span class="section-no">04</span><h2>Generation Algorithm</h2></div>
+      <p><strong>Input.</strong> Learned $\dat{(u^p,s^p)}$, learned $\bol{(u^\pi,s^\pi)}$, tilt $\lambda$, steps $N$, diffusion $\sigma_t$, and corrector choice.</p>
+      <ol>
+        <li>Sample the prior: $X\sim\rho_0$.</li>
+        <li>Evaluate heads and assemble $\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t}$ and $\tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}$.</li>
+        <li>Predictor step: $X\mathrel{+}=[\tilde u_t+\tfrac{\sigma_t^2}{2}\tilde s_t]\Delta t+\sigma_t\sqrt{\Delta t}\xi$.</li>
+        <li>At frozen $t$, apply the chosen corrector. Langevin: $X\mathrel{+}=\delta\,\tilde s_t(X)+\sqrt{2\delta}\xi$. FKC: $w\mathrel{+}=g_t(X)\Delta t$, then resample inside fixed-$N$ bins on $[t_{\min},t_{\max}]$.</li>
+        <li>Advance $t$ to $1$ and return $X\sim\rho_1\propto \dat{p}\,\bol{\pi}^{\lambda}$.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Standalone EBCG derivation page for the non-Gaussian SI drift-SDE algorithm. <a href="../">Back to the interactive reference.</a>
+    </footer>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$",  right: "$",  display: false }
+        ],
+        throwOnError: false,
+        macros: {
+          "\\dat": "\\textcolor{##2f5aa8}{#1}",
+          "\\bol": "\\textcolor{##bd6526}{#1}"
+        }
+      });
+    });
+  </script>
+</body>
+</html>
