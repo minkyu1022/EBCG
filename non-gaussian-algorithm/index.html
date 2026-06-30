@@ -284,17 +284,19 @@
     <aside class="legend" aria-label="Notation legend">
       <div class="legend-grid">
         <div class="legend-key"><span class="swatch data"></span>$p$</div>
-        <div class="legend-desc">data distribution. The generative model learns marginal $\dat{p_t}$, velocity $\dat{u^p_t}$, and score $\dat{s^p_t}$.</div>
+        <div class="legend-desc">data distribution. The generative model learns marginal $\dat{p_t}$, velocity $\dat{v^p_t}$, and score $\dat{s^p_t}$.</div>
         <div class="legend-key"><span class="swatch boltz"></span>$\pi$</div>
-        <div class="legend-desc">Boltzmann distribution $\bol{\pi}\propto e^r$, reward $r=-E/T$ from the MLIP. Flow Sampling learns marginal $\bol{\pi_t}$, velocity $\bol{u^\pi_t}$, and score $\bol{s^\pi_t}$.</div>
+        <div class="legend-desc">Boltzmann distribution $\bol{\pi}\propto e^r$, reward $r=-E/T$ from the MLIP. Flow Sampling learns marginal $\bol{\pi_t}$, velocity $\bol{v^\pi_t}$, and score $\bol{s^\pi_t}$.</div>
+        <div class="legend-key">$v^i_t$</div>
+        <div class="legend-desc">expert velocity $v^i_t=\mathbb{E}[\dot X_t\mid X_t]$.</div>
         <div class="legend-key">$u^i_t$</div>
-        <div class="legend-desc">expert velocity $u^i_t=\mathbb{E}[\dot X_t\mid X_t]$.</div>
+        <div class="legend-desc">SDE drift $u^i_t=v^i_t+\tfrac{\sigma_t^2}{2}s^i_t$ for the chosen sampling diffusion.</div>
         <div class="legend-key">$s^i_t$</div>
         <div class="legend-desc">expert score $s^i_t=\nabla\log(\cdot)_t$.</div>
         <div class="legend-key">$\tilde s_t$</div>
         <div class="legend-desc">tilted score $\tilde s_t=\dat{s^p_t}+\lambda\bol{s^\pi_t}$.</div>
-        <div class="legend-key">$\tilde u_t$</div>
-        <div class="legend-desc">tilt velocity $\tilde u_t=\dat{u^p_t}+\lambda\bol{u^\pi_t}$.</div>
+        <div class="legend-key">$\tilde v_t$</div>
+        <div class="legend-desc">tilt velocity $\tilde v_t=\dat{v^p_t}+\lambda\bol{v^\pi_t}$.</div>
         <div class="legend-key">$\rho_t$</div>
         <div class="legend-desc">sampling path $\rho_t\propto \dat{p_t}\,\bol{\pi_t}^{\lambda}$.</div>
         <div class="legend-key">$\lambda,\sigma_t$</div>
@@ -316,30 +318,29 @@
     </section>
 
     <section>
-      <div class="section-head"><span class="section-no">01</span><h2>Models</h2></div>
-      <p>The SI data model exposes $\dat{(u^p_t,s^p_t)}$. The Flow-Sampling Boltzmann model exposes $\bol{(u^\pi_t,s^\pi_t)}$ through its two heads. No target samples from $\rho_1$ are required, and the corrector below does not require estimating a velocity divergence.</p>
-      <div class="eq data">$$\dat{u^p_t(x)=\mathbb E[\dot X_t\mid X_t=x]},\qquad \dat{s^p_t(x)=\nabla\log p_t(x)}.$$</div>
-      <div class="eq amber">$$\bol{s^\pi_t=\widehat{\nabla r}/t},\qquad \bol{u^\pi_t=v^\pi_t+\tfrac{g_t^2}{2}s^\pi_t}.$$</div>
+      <div class="section-head"><span class="section-no">01</span><h2>Data Distribution: Stochastic Interpolant</h2></div>
+      <p>The SI data model exposes the data velocity and score $\dat{(v^p_t,s^p_t)}$. The Flow-Sampling Boltzmann model will expose $\bol{(v^\pi_t,s^\pi_t)}$ in the next section. No target samples from $\rho_1$ are required, and the corrector below does not require estimating a velocity divergence.</p>
+      <div class="eq data">$$\dat{v^p_t(x)=\mathbb E[\dot X_t\mid X_t=x]},\qquad \dat{s^p_t(x)=\nabla\log p_t(x)}.$$</div>
     </section>
 
     <section>
-      <div class="section-head"><span class="section-no">02</span><h2>Flow Sampling</h2></div>
+      <div class="section-head"><span class="section-no">02</span><h2>Classifier: Flow Sampling</h2></div>
       <p>The Boltzmann expert $\bol{\pi\propto e^r}$ is not trained from equilibrium samples. It is trained from the MLIP reward by Flow Sampling. With the non-Gaussian prior bridge $X_t=tX_1+(1-t)X_0$ and $g_t^2=2\gamma t$, the reward-bearing conditional drift target is:</p>
       <div class="eq amber">$$\bol{u_{t\mid1}^{\pi}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1)},\qquad \nabla r(X_1)=-\nabla E(X_1)/T.$$</div>
-      <p>Because the prior is non-Gaussian, a single drift head cannot recover both velocity and score. Flow Sampling therefore uses two heads.</p>
+      <p>Because the prior is non-Gaussian, a single drift output cannot recover both velocity and score. Flow Sampling therefore uses two heads.</p>
       <div class="eq amber">$$\bol{\hat x_1^\pi(x,t)\approx\mathbb E[X_1\mid X_t=x]},\qquad
 \bol{\widehat{\nabla r}(x,t)\approx\mathbb E[\nabla r(X_1)\mid X_t=x]}.$$</div>
       <div class="eq amber">$$\bol{\mathcal L_{\text{den}}=\mathbb E\|\hat x_1^\pi(X_t,t)-X_1\|^2},\qquad
 \bol{\mathcal L_{\nabla r}=\mathbb E\|\widehat{\nabla r}(X_t,t)-\nabla r(X_1)\|^2}.$$</div>
       <p>The two learned outputs are then converted into the Boltzmann velocity and score used by the predictor-corrector.</p>
-      <div class="eq amber">$$\bol{u^\pi_t(x)=\frac{\hat x_1^\pi(x,t)-x}{1-t}},\qquad
+      <div class="eq amber">$$\bol{v^\pi_t(x)=\frac{\hat x_1^\pi(x,t)-x}{1-t}},\qquad
 \bol{s^\pi_t(x)=\frac{\widehat{\nabla r}(x,t)}{t}}.$$</div>
       <details>
         <summary>Why the reward appears in the score</summary>
         <div class="detail-body">
           <p>Taking the conditional expectation of the Flow-Sampling target gives the SDE drift
-          $b^\pi_t=u^\pi_t+\gamma\widehat{\nabla r}$. The Fokker-Planck identity gives
-          $b^\pi_t=u^\pi_t+\tfrac{g_t^2}{2}s^\pi_t$. Since $g_t^2=2\gamma t$, matching the two expressions yields
+          $u^\pi_t=v^\pi_t+\gamma\widehat{\nabla r}$. The Fokker-Planck identity gives
+          $u^\pi_t=v^\pi_t+\tfrac{g_t^2}{2}s^\pi_t$. Since $g_t^2=2\gamma t$, matching the two expressions yields
           $s^\pi_t=\widehat{\nabla r}/t$.</p>
         </div>
       </details>
@@ -348,13 +349,13 @@
     <section>
       <div class="section-head"><span class="section-no">03</span><h2>Predictor</h2></div>
       <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
-      <div class="eq">$$\mathrm dX=\Big[\,\tilde u_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
-      <div class="eq">$$\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
+      <div class="eq">$$\mathrm dX=\Big[\,\tilde v_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
+      <div class="eq">$$\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
       <details>
         <summary>Predictor derivation</summary>
         <div class="detail-body">
-          <div class="eq">$$g_t=\langle\tilde s_t,W_t\rangle-\sum_i\beta_i\langle s^i_t,u^i_t\rangle+\nabla\!\cdot(W_t-U_t),\qquad U_t=\textstyle\sum_i\beta_i u^i_t.$$</div>
-          <p>The divergence term $\nabla\!\cdot(W_t-U_t)$ disappears only when $W_t=U_t$, i.e. when the transport is the tilt velocity. Other transports leave a velocity-divergence term in the weight and require a trace estimator.</p>
+          <div class="eq">$$g_t=\langle\tilde s_t,W_t\rangle-\sum_i\beta_i\langle s^i_t,v^i_t\rangle+\nabla\!\cdot(W_t-M_t),\qquad M_t=\textstyle\sum_i\beta_i v^i_t.$$</div>
+          <p>The divergence term $\nabla\!\cdot(W_t-M_t)$ disappears only when $W_t=M_t$, i.e. when the transport is the tilt velocity. Other transports leave a velocity-divergence term in the weight and require a trace estimator.</p>
         </div>
       </details>
     </section>
@@ -376,7 +377,7 @@
       <div class="note amber">
         The predictor uses tilt-velocity transport, so the Feynman-Kac weight has no divergence estimator and depends only on velocity-score inner products.
       </div>
-      <div class="eq amber">$$g_t=\lambda(\lambda-1)\,\langle \bol{u^\pi_t},\bol{s^\pi_t}\rangle+\lambda\big(\langle \dat{u^p_t},\bol{s^\pi_t}\rangle+\langle \bol{u^\pi_t},\dat{s^p_t}\rangle\big).$$</div>
+      <div class="eq amber">$$g_t=\lambda(\lambda-1)\,\langle \bol{v^\pi_t},\bol{s^\pi_t}\rangle+\lambda\big(\langle \dat{v^p_t},\bol{s^\pi_t}\rangle+\langle \bol{v^\pi_t},\dat{s^p_t}\rangle\big).$$</div>
       <div class="eq amber">$$w_t^{(k)}=\!\int_{t_{\min}}^{t}\! g_s\big(x^{(k)}_s\big)\,\mathrm ds,\qquad \mathbb{E}_{\rho_t}[\phi]\approx\sum_k\frac{e^{w_t^{(k)}}}{\sum_j e^{w_t^{(j)}}}\,\phi\big(x^{(k)}_t\big).$$</div>
       <div class="note">
         Resample only on the active interval $[t_{\min},t_{\max}]$, only within fixed atom-count bins, and temper or clip weights for large $\lambda$ because $\|s^\pi_t\|$ enters quadratically.
@@ -385,28 +386,28 @@
         <summary>PDE matching derivation</summary>
         <div class="detail-body">
           <p>Step 1, each marginal.</p>
-          <div class="eq">$$\partial_t\log(\cdot)^i_t=-\langle s^i_t,u^i_t\rangle-\nabla\!\cdot u^i_t.$$</div>
+          <div class="eq">$$\partial_t\log(\cdot)^i_t=-\langle s^i_t,v^i_t\rangle-\nabla\!\cdot v^i_t.$$</div>
           <p>Step 2, target path. Exponents $(\beta_p,\beta_\pi)=(1,\lambda)$, with the normalizer removed by mean subtraction.</p>
-          <div class="eq">$$B:=\partial_t\log\rho_t\big|_{\text{non-norm}}=-\sum_i\beta_i\langle s^i_t,u^i_t\rangle-\nabla\!\cdot U_t,\qquad U_t=\textstyle\sum_i\beta_i u^i_t.$$</div>
-          <p>Step 3, SDE rate. Drift $V_t=U_t+\tfrac{\sigma_t^2}{2}\tilde s_t$, diffusion $\sigma_t$.</p>
-          <div class="eq">$$A=-\langle\tilde s_t,V_t\rangle-\nabla\!\cdot V_t+\tfrac{\sigma_t^2}{2}\big(\Delta\log\rho_t+\|\tilde s_t\|^2\big).$$</div>
-          <p>After substituting $V_t$, all $\sigma_t^2$ and Laplacian terms cancel: $A=-\langle\tilde s_t,U_t\rangle-\nabla\!\cdot U_t$.</p>
+          <div class="eq">$$B:=\partial_t\log\rho_t\big|_{\text{non-norm}}=-\sum_i\beta_i\langle s^i_t,v^i_t\rangle-\nabla\!\cdot M_t,\qquad M_t=\textstyle\sum_i\beta_i v^i_t.$$</div>
+          <p>Step 3, SDE rate. SDE drift $A_t=M_t+\tfrac{\sigma_t^2}{2}\tilde s_t$, diffusion $\sigma_t$.</p>
+          <div class="eq">$$A=-\langle\tilde s_t,A_t\rangle-\nabla\!\cdot A_t+\tfrac{\sigma_t^2}{2}\big(\Delta\log\rho_t+\|\tilde s_t\|^2\big).$$</div>
+          <p>After substituting $A_t$, all $\sigma_t^2$ and Laplacian terms cancel: $A=-\langle\tilde s_t,M_t\rangle-\nabla\!\cdot M_t$.</p>
           <p>Step 4, residual weight.</p>
-          <div class="eq">$$g_t=B-A=\langle\tilde s_t,U_t\rangle-\sum_i\beta_i\langle s^i_t,u^i_t\rangle.$$</div>
-          <p>Expanding $\langle\tilde s_t,U_t\rangle=\sum_{i,j}\beta_i\beta_j\langle s^j_t,u^i_t\rangle$ and setting $(\beta_p,\beta_\pi)=(1,\lambda)$ gives the boxed FKC weight. The diagonal data term vanishes because $\beta_p(\beta_p-1)=0$.</p>
+          <div class="eq">$$g_t=B-A=\langle\tilde s_t,M_t\rangle-\sum_i\beta_i\langle s^i_t,v^i_t\rangle.$$</div>
+          <p>Expanding $\langle\tilde s_t,M_t\rangle=\sum_{i,j}\beta_i\beta_j\langle s^j_t,v^i_t\rangle$ and setting $(\beta_p,\beta_\pi)=(1,\lambda)$ gives the boxed FKC weight. The diagonal data term vanishes because $\beta_p(\beta_p-1)=0$.</p>
         </div>
       </details>
     </section>
 
     <section class="algorithm">
       <div class="section-head"><span class="section-no">05</span><h2>Generation Algorithm</h2></div>
-      <p><strong>Input.</strong> Learned $\dat{(u^p,s^p)}$, learned $\bol{(u^\pi,s^\pi)}$, tilt $\lambda$, steps $N$, diffusion $\sigma_t$, and corrector choice.</p>
+      <p><strong>Input.</strong> Learned $\dat{(v^p,s^p)}$, learned $\bol{(v^\pi,s^\pi)}$, tilt $\lambda$, steps $N$, diffusion $\sigma_t$, and corrector choice.</p>
       <ol>
-        <li>Train the Boltzmann expert by Flow Sampling: regress $\bol{\hat x_1^\pi}$ and $\bol{\widehat{\nabla r}}$, then read $\bol{u^\pi_t}$ and $\bol{s^\pi_t=\widehat{\nabla r}/t}$.</li>
-        <li>Train the SI data expert to expose $\dat{u^p_t}$ and $\dat{s^p_t}$.</li>
+        <li>Train the Boltzmann expert by Flow Sampling: regress $\bol{\hat x_1^\pi}$ and $\bol{\widehat{\nabla r}}$, then read $\bol{v^\pi_t}$ and $\bol{s^\pi_t=\widehat{\nabla r}/t}$.</li>
+        <li>Train the SI data expert to expose $\dat{v^p_t}$ and $\dat{s^p_t}$.</li>
         <li>Sample the prior: $X\sim\rho_0$.</li>
-        <li>Evaluate heads and assemble $\tilde u_t=\dat{u^p_t}+\lambda\,\bol{u^\pi_t}$ and $\tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}$.</li>
-        <li>Predictor step: $X\mathrel{+}=[\tilde u_t+\tfrac{\sigma_t^2}{2}\tilde s_t]\Delta t+\sigma_t\sqrt{\Delta t}\xi$.</li>
+        <li>Evaluate heads and assemble $\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t}$ and $\tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}$.</li>
+        <li>Predictor step: $X\mathrel{+}=[\tilde v_t+\tfrac{\sigma_t^2}{2}\tilde s_t]\Delta t+\sigma_t\sqrt{\Delta t}\xi$.</li>
         <li>At frozen $t$, apply the chosen corrector. Langevin: $X\mathrel{+}=\delta\,\tilde s_t(X)+\sqrt{2\delta}\xi$. FKC: $w\mathrel{+}=g_t(X)\Delta t$, then resample inside fixed-$N$ bins on $[t_{\min},t_{\max}]$.</li>
         <li>Advance $t$ to $1$ and return $X\sim\rho_1\propto \dat{p}\,\bol{\pi}^{\lambda}$.</li>
       </ol>

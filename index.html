@@ -944,12 +944,12 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
         drift_sde: {
           title: "Tilted inference - drift SDE",
           blocks: [],
-          predictorQ: { math: md`$$dX=\Big[u^q_t+\lambda\,u^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
+          predictorQ: { math: md`$$dX=\Big[v^q_t+\lambda\,v^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
 \qquad \tilde s_t=s^{\text{data}}_t+\lambda s^p_t.$$`, proof: PROOFS.driftSde },
-          predictorPQ: { math: md`$$dX=\Big[u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
+          predictorPQ: { math: md`$$dX=\Big[v^\phi_t+(1+\lambda)\,v^p_t+\tfrac{\tilde g_t^2}{2}\,\tilde s_t\Big]dt+\tilde g_t\,dW,
 \qquad \tilde s_t=s^\phi_t+(1+\lambda)s^p_t.$$`, proof: PROOFS.driftSde },
           langevinBlock: { html: md`<p>For a non-Gaussian prior, make it exact by adding a <strong>Langevin corrector</strong> at each $t$:</p>`, math: md`$$\text{corrector:}\quad X\leftarrow X+\epsilon\,\tilde s_t(X)+\sqrt{2\epsilon}\,\xi,\quad \xi\sim\mathcal N(0,I),$$`, proof: PROOFS.driftSde },
-          outro: md`<p>Transport uses the tilt velocity $\sum_i\beta_i u^i_t$, not $v^{\text{data}}_t$ alone. This is the predictor shared by both correctors below. The bare drift still misses the product-path reweighting, so a corrector pins each marginal to $\tilde\rho_t$. Choose the corrector with the toggle.</p>`
+          outro: md`<p>Transport uses the tilt velocity $\sum_i\beta_i v^i_t$, not $v^{\text{data}}_t$ alone. The SDE drift is that velocity plus $\tfrac{\tilde g_t^2}{2}\tilde s_t$. The bare predictor still misses the product-path reweighting, so a corrector pins each marginal to $\tilde\rho_t$. Choose the corrector with the toggle.</p>`
         },
         score_sde: {
           title: "Tilted inference - score SDE",
@@ -963,9 +963,9 @@ v_t^{\text{data}}=v_t^p+\frac{1-t}{t}s_t^q,\qquad
       fkc: {
         notation: {
           html: md`<p>$t=0$ is the prior and $t=1$ is the data end. For expert $i$, let $q^i_t$ be its noised marginal. SI exposes velocity and score heads. All experts share the same interpolant schedule and prior $\rho_0$:</p>`,
-          math: md`$$u^i_t(x)=\mathbb{E}[\dot x_t\mid x_t=x],\qquad s^i_t(x)=\nabla\log q^i_t(x).$$
-$$v^i_t=u^i_t+\tfrac{\sigma_t^2}{2}\,s^i_t,\qquad
-\partial_t q^i_t=-\nabla\!\cdot\!\big(q^i_t v^i_t\big)+\tfrac{\sigma_t^2}{2}\Delta q^i_t.$$`,
+          math: md`$$v^i_t(x)=\mathbb{E}[\dot x_t\mid x_t=x],\qquad s^i_t(x)=\nabla\log q^i_t(x).$$
+$$b^i_t=v^i_t+\tfrac{\sigma_t^2}{2}\,s^i_t,\qquad
+\partial_t q^i_t=-\nabla\!\cdot\!\big(q^i_t b^i_t\big)+\tfrac{\sigma_t^2}{2}\Delta q^i_t=-\nabla\!\cdot\!\big(q^i_t v^i_t\big).$$`,
           proof: PROOFS.fkcPointer
         },
         twoMarginals: {
@@ -981,23 +981,23 @@ $$v^i_t=u^i_t+\tfrac{\sigma_t^2}{2}\,s^i_t,\qquad
         },
         generalCorrector: {
           html: md`<p>For two experts with exponents $(\beta_1,\beta_2)$, use the drift SDE predictor above. Its FKC weight is divergence-free and contains only velocity-score inner products:</p>`,
-          math: md`$$\boxed{\,g_t=\beta_1(\beta_1-1)\langle u^1_t,s^1_t\rangle
-+\beta_2(\beta_2-1)\langle u^2_t,s^2_t\rangle
-+\beta_1\beta_2\big(\langle u^1_t,s^2_t\rangle+\langle u^2_t,s^1_t\rangle\big)\,}$$`,
+          math: md`$$\boxed{\,g_t=\beta_1(\beta_1-1)\langle v^1_t,s^1_t\rangle
++\beta_2(\beta_2-1)\langle v^2_t,s^2_t\rangle
++\beta_1\beta_2\big(\langle v^1_t,s^2_t\rangle+\langle v^2_t,s^1_t\rangle\big)\,}$$`,
           proof: PROOFS.fkcPointer
         },
         caseQ: {
           html: md`<p>Standalone $q$: experts are $(q,\mu)$ with exponents $(1,\lambda)$.</p>`,
-          math: md`$$g_t=\lambda(\lambda-1)\,\langle u^p_t,s^p_t\rangle
-+\lambda\big(\langle u^q_t,s^p_t\rangle+\langle u^p_t,s^{\text{data}}_t\rangle\big),$$
-$$V_t=u^q_t+\lambda\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^{\text{data}}_t+\lambda\,s^p_t\big).$$`,
+          math: md`$$g_t=\lambda(\lambda-1)\,\langle v^p_t,s^p_t\rangle
++\lambda\big(\langle v^q_t,s^p_t\rangle+\langle v^p_t,s^{\text{data}}_t\rangle\big),$$
+$$V_t=v^q_t+\lambda\,v^p_t+\tfrac{\sigma_t^2}{2}\big(s^{\text{data}}_t+\lambda\,s^p_t\big).$$`,
           proof: PROOFS.fkcPointer
         },
         casePQ: {
           html: md`<p>Product $p\cdot q$: since $p_{\text{data}}=\mu\cdot q_\phi$, the path is $\tilde\rho_t\propto(q_\phi)_t\mu_t^{1+\lambda}$, with exponents $(1,1+\lambda)$.</p>`,
-          math: md`$$g_t=\lambda(1+\lambda)\,\langle u^p_t,s^p_t\rangle
-+(1+\lambda)\big(\langle u^\phi_t,s^p_t\rangle+\langle u^p_t,s^\phi_t\rangle\big),$$
-$$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)\,s^p_t\big).$$`,
+          math: md`$$g_t=\lambda(1+\lambda)\,\langle v^p_t,s^p_t\rangle
++(1+\lambda)\big(\langle v^\phi_t,s^p_t\rangle+\langle v^p_t,s^\phi_t\rangle\big),$$
+$$V_t=v^\phi_t+(1+\lambda)\,v^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)\,s^p_t\big).$$`,
           proof: PROOFS.fkcPointer
         },
         smcEstimator: {
@@ -1009,7 +1009,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
         },
         scoreFormNote: md`
           <div class="note">
-            <p><strong>Score-form note.</strong> The excess-norm form is recovered only when the velocity has a shared linear drift $u^i_t=-f_t+\tfrac{\sigma_t^2}{2}s^i_t$ and the drift convention is changed. For non-Gaussian SI, velocity depends on the expert denoiser, so use the velocity-head form above, not the score-only excess-norm shortcut.</p>
+            <p><strong>Score-form note.</strong> The excess-norm form is recovered only under a shared linear SDE-drift convention such as $b^i_t=-f_t+\tfrac{\sigma_t^2}{2}s^i_t$. For non-Gaussian SI, the continuity velocity depends on the expert denoiser, so use the velocity-head form above, not the score-only excess-norm shortcut.</p>
             <div>$$g_t=\tfrac{\sigma_t^2}{2}\Big(\|S_t\|^2-\sum_i\beta_i\|s^i_t\|^2\Big)
 +\Big(\sum_i\beta_i-1\Big)\langle\nabla,f_t\rangle,\qquad S_t=\sum_i\beta_i s^i_t.$$</div>
           </div>`,
@@ -1370,7 +1370,7 @@ $$V_t=u^\phi_t+(1+\lambda)\,u^p_t+\tfrac{\sigma_t^2}{2}\big(s^\phi_t+(1+\lambda)
           steps.push("Integrate $dX/dt=v_t^{\\text{data}}+\\lambda\\gamma\\widehat{\\nabla r}$.");
         }
       } else if (state.inference === "drift_sde") {
-        const tv = state.data_dist === "pq" ? "u_t^\\phi+(1+\\lambda)u_t^p" : "u_t^q+\\lambda u_t^p";
+        const tv = state.data_dist === "pq" ? "v_t^\\phi+(1+\\lambda)v_t^p" : "v_t^q+\\lambda v_t^p";
         steps.push(`Run predictor steps $dX=[${tv}+(\\tilde g_t^2/2)\\tilde s_t]dt+\\tilde g_t dW$.`);
         if (state.corrector === "fkc") {
           steps.push("Accumulate log weights $w_t^{(k)}\\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\\Delta t$ using the case-specific FKC inner-product formula.");
