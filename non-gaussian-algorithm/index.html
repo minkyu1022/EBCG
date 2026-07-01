@@ -209,6 +209,43 @@
       border-left-color: var(--data);
     }
 
+    .transport-figure {
+      margin: 18px 0 20px;
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fbfcfd, #f3f6f8);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .transport-figure svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .transport-figure text {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .transport-figure .mono {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .transport-figure .caption {
+      margin: 0;
+      padding: 11px 13px 13px;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
     .katex-display {
       overflow-x: auto;
       overflow-y: hidden;
@@ -311,7 +348,7 @@
     <header>
       <div class="eyebrow">Energy-Based Classifier Guidance</div>
       <h1>Non-Gaussian SI Drift SDE</h1>
-      <p class="subtitle">Fixed-case derivation for sampling the reward-tilted target $\dat{p}\,\bol{\pi}^{\lambda}$ with stochastic interpolant experts and a drift-SDE predictor-corrector.</p>
+      <p class="subtitle">Fixed-case derivation for sampling the reward-tilted target $\dat{p}\,\bol{\pi}^{\lambda}$ with stochastic interpolant fields and a drift-SDE predictor-corrector.</p>
     </header>
 
     <aside class="legend" aria-label="Notation legend">
@@ -321,11 +358,11 @@
         <div class="legend-key"><span class="swatch boltz"></span>$\pi$</div>
         <div class="legend-desc">Boltzmann distribution $\bol{\pi}\propto e^r$, reward $r=-E/T$ from the MLIP. Flow Sampling learns marginal $\bol{\pi_t}$, velocity $\bol{v^\pi_t}$, and score $\bol{s^\pi_t}$.</div>
         <div class="legend-key">$v^i_t$</div>
-        <div class="legend-desc">expert velocity $v^i_t=\mathbb{E}[\dot X_t\mid X_t]$.</div>
+        <div class="legend-desc">marginal velocity $v^i_t=\mathbb{E}[\dot X_t\mid X_t]$ for component $i$.</div>
         <div class="legend-key">$u^i_t$</div>
         <div class="legend-desc">SDE drift $u^i_t=v^i_t+\tfrac{\sigma_t^2}{2}s^i_t$ for the chosen sampling diffusion.</div>
         <div class="legend-key">$s^i_t$</div>
-        <div class="legend-desc">expert score $s^i_t=\nabla\log(\cdot)_t$.</div>
+        <div class="legend-desc">marginal score $s^i_t=\nabla\log(\cdot)_t$ for component $i$.</div>
         <div class="legend-key">$\tilde s_t$</div>
         <div class="legend-desc">tilted score $\tilde s_t=\dat{s^p_t}+\lambda\bol{s^\pi_t}$.</div>
         <div class="legend-key">$\tilde v_t$</div>
@@ -346,19 +383,90 @@
       <div class="eq">$$\rho_1\;\propto\;\dat{p}\,\bol{\pi}^{\lambda}\;\propto\;\dat{p}\,e^{\lambda r}.$$</div>
       <div class="eq">$$\rho_t\;\propto\;\dat{p_t}\,\bol{\pi_t}^{\lambda},\qquad \tilde s_t=\nabla\log\rho_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
       <div class="note">
-        Noising does not commute with multiplication, so $\rho_t$ is not the true noised reward-tilted endpoint at intermediate $t$. It matches at $t=1$. This product-of-marginals path is the computable path because the trained experts expose $\dat{s^p_t}$ and $\bol{s^\pi_t}$.
+        Noising does not commute with multiplication, so $\rho_t$ is not the true noised reward-tilted endpoint at intermediate $t$. It matches at $t=1$. This product-of-marginals path is the computable path because the trained component models expose $\dat{s^p_t}$ and $\bol{s^\pi_t}$.
       </div>
     </section>
 
     <section>
       <div class="section-head"><span class="section-no">01</span><h2>Data Distribution: Stochastic Interpolant</h2></div>
-      <p>The SI data model exposes the data velocity and score $\dat{(v^p_t,s^p_t)}$. The Flow-Sampling Boltzmann model will expose $\bol{(v^\pi_t,s^\pi_t)}$ in the next section. No target samples from $\rho_1$ are required, and the corrector below does not require estimating a velocity divergence.</p>
+      <p>The SI data model exposes the data velocity and score $\dat{(v^p_t,s^p_t)}$. It is trained on data endpoints, not on reward-tilted samples. No target samples from $\rho_1$ are required, and the corrector below does not require estimating a velocity divergence.</p>
+      <figure class="transport-figure" aria-label="Stochastic interpolant data transport diagram">
+        <svg viewBox="0 0 720 210" role="img">
+          <defs>
+            <radialGradient id="dataBlobA" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#2f5aa8" stop-opacity="0.46"/>
+              <stop offset="52%" stop-color="#2f5aa8" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#2f5aa8" stop-opacity="0"/>
+            </radialGradient>
+            <marker id="arrowData" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#2f5aa8"/>
+            </marker>
+          </defs>
+          <rect x="0" y="0" width="720" height="210" fill="#f8fafc"/>
+          <text class="mono" x="46" y="35">prior p0</text>
+          <text class="mono" x="310" y="35">Xt = tX1 + (1-t)X0 + gamma_t Z</text>
+          <text class="mono" x="596" y="35">data p1</text>
+          <circle cx="92" cy="112" r="40" fill="url(#dataBlobA)"/>
+          <circle cx="92" cy="112" r="23" fill="#2f5aa8" opacity="0.18"/>
+          <ellipse cx="600" cy="88" rx="42" ry="25" fill="url(#dataBlobA)" transform="rotate(-18 600 88)"/>
+          <ellipse cx="628" cy="134" rx="39" ry="23" fill="url(#dataBlobA)" transform="rotate(22 628 134)"/>
+          <ellipse cx="552" cy="130" rx="31" ry="20" fill="url(#dataBlobA)" transform="rotate(-12 552 130)"/>
+          <path d="M145 110 C230 58, 296 67, 368 98 S492 142, 555 94" fill="none" stroke="#2f5aa8" stroke-width="3" marker-end="url(#arrowData)"/>
+          <path d="M145 120 C232 143, 300 137, 365 120 S486 91, 558 132" fill="none" stroke="#2f5aa8" stroke-width="2" opacity="0.62" marker-end="url(#arrowData)"/>
+          <path d="M172 98 C270 100, 315 95, 390 112 S484 143, 582 134" fill="none" stroke="#2f5aa8" stroke-width="2" opacity="0.35"/>
+          <circle cx="312" cy="92" r="20" fill="none" stroke="#8aa6d8" stroke-width="2"/>
+          <circle cx="354" cy="112" r="28" fill="none" stroke="#8aa6d8" stroke-width="2" opacity="0.8"/>
+          <circle cx="402" cy="104" r="18" fill="none" stroke="#8aa6d8" stroke-width="2" opacity="0.65"/>
+          <text x="267" y="166">learn v^p_t by velocity loss</text>
+          <text x="267" y="185">learn s^p_t from denoiser</text>
+        </svg>
+        <p class="caption">SI transports prior samples toward the data marginal while exposing both currencies needed later: a continuity velocity and a score.</p>
+      </figure>
       <div class="eq data">$$\dat{v^p_t(x)=\mathbb E[\dot X_t\mid X_t=x]},\qquad \dat{s^p_t(x)=\nabla\log p_t(x)}.$$</div>
+      <p>In the AdsorbGen-style SI parameterization, the stochastic interpolant and velocity target are:</p>
+      <div class="eq data">$$X_t=tX_1+(1-t)X_0+\gamma_t Z,\qquad \dot X_t=X_1-X_0+\dot\gamma_t Z.$$</div>
+      <div class="eq data">$$\gamma_t=0.1\sqrt{\max(t(1-t),10^{-5})},\qquad
+\dot\gamma_t=\frac{0.1(1-2t)}{2\sqrt{\max(t(1-t),10^{-5})}}.$$</div>
+      <p>The code-compatible form can use an $x_1$ head and convert it to the velocity used in the loss.</p>
+      <div class="eq data">$$\dat{v_\theta(X_t,t)=\frac{\hat x^p_1(X_t,t)-X_t}{1-t}},\qquad
+\dat{\mathcal L_{\text{SI}}=\mathbb E\|v_\theta(X_t,t)-\dot X_t\|^2+\eta\,\mathbb E\|z_\theta(X_t,t)-Z\|^2}.$$</div>
+      <div class="eq data">$$\dat{v^p_t(x)=v_\theta(x,t)},\qquad \dat{s^p_t(x)=-\frac{z_\theta(x,t)}{\gamma_t}}.$$</div>
+      <p>Used alone, this data model can generate from $p$ by the same drift-SDE form without reward guidance:</p>
+      <div class="eq data">$$\mathrm dX=\Big[\dat{v^p_t(X)}+\tfrac{\sigma_t^2}{2}\dat{s^p_t(X)}\Big]\mathrm dt+\sigma_t\,\mathrm dW,\qquad X_0\sim\rho_0.$$</div>
     </section>
 
     <section>
       <div class="section-head"><span class="section-no">02</span><h2>Classifier: Flow Sampling</h2></div>
-      <p>The Boltzmann expert $\bol{\pi\propto e^r}$ is not trained from equilibrium samples. It is trained from the MLIP reward by Flow Sampling. With the non-Gaussian prior bridge $X_t=tX_1+(1-t)X_0$ and $g_t^2=2\gamma t$, the reward-bearing conditional drift target is:</p>
+      <p>The Boltzmann classifier $\bol{\pi\propto e^r}$ is not trained from equilibrium samples. It is trained from the MLIP reward by Flow Sampling. With the non-Gaussian prior bridge $X_t=tX_1+(1-t)X_0$ and $g_t^2=2\gamma t$, the reward-bearing conditional drift target is:</p>
+      <figure class="transport-figure" aria-label="Flow Sampling classifier transport diagram">
+        <svg viewBox="0 0 720 210" role="img">
+          <defs>
+            <radialGradient id="boltzBlobA" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#bd6526" stop-opacity="0.48"/>
+              <stop offset="55%" stop-color="#bd6526" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#bd6526" stop-opacity="0"/>
+            </radialGradient>
+            <marker id="arrowBoltz" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#bd6526"/>
+            </marker>
+          </defs>
+          <rect x="0" y="0" width="720" height="210" fill="#fff9f2"/>
+          <text class="mono" x="42" y="35">source X0 ~ rho0</text>
+          <text class="mono" x="287" y="35">energy pushes signal</text>
+          <text class="mono" x="558" y="35">Boltzmann pi</text>
+          <circle cx="88" cy="112" r="38" fill="none" stroke="#bd6526" stroke-opacity="0.22" stroke-width="2"/>
+          <circle cx="118" cy="120" r="18" fill="none" stroke="#bd6526" stroke-opacity="0.28" stroke-width="2"/>
+          <path d="M154 124 C246 120, 309 92, 399 76 S523 70, 598 86" fill="none" stroke="#bd6526" stroke-width="3" marker-end="url(#arrowBoltz)"/>
+          <path d="M152 112 C238 70, 307 73, 385 104 S515 145, 604 126" fill="none" stroke="#bd6526" stroke-width="2" opacity="0.6" marker-end="url(#arrowBoltz)"/>
+          <path d="M166 138 C263 160, 332 147, 414 122 S516 95, 616 112" fill="none" stroke="#bd6526" stroke-width="2" opacity="0.38"/>
+          <ellipse cx="602" cy="84" rx="48" ry="24" fill="url(#boltzBlobA)" transform="rotate(-15 602 84)"/>
+          <ellipse cx="610" cy="124" rx="35" ry="20" fill="url(#boltzBlobA)" transform="rotate(20 610 124)"/>
+          <path d="M305 138 l42 -48" stroke="#bd6526" stroke-width="4" marker-end="url(#arrowBoltz)"/>
+          <text x="262" y="162">target u_{t|1}: transport + gamma grad r</text>
+          <text x="262" y="184">read v^pi_t and s^pi_t from two heads</text>
+        </svg>
+        <p class="caption">Flow Sampling uses reward gradients to move prior mass toward the unnormalized Boltzmann density; the learned classifier field later supplies guidance.</p>
+      </figure>
       <div class="eq amber">$$\bol{u_{t\mid1}^{\pi}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1)},\qquad \nabla r(X_1)=-\nabla E(X_1)/T.$$</div>
       <p>Because the prior is non-Gaussian, a single drift output cannot recover both velocity and score. Flow Sampling therefore uses two heads.</p>
       <div class="eq amber">$$\bol{\hat x_1^\pi(x,t)\approx\mathbb E[X_1\mid X_t=x]},\qquad
@@ -368,6 +476,9 @@
       <p>The two learned outputs are then converted into the Boltzmann velocity and score used by the predictor-corrector.</p>
       <div class="eq amber">$$\bol{v^\pi_t(x)=\frac{\hat x_1^\pi(x,t)-x}{1-t}},\qquad
 \bol{s^\pi_t(x)=\frac{\widehat{\nabla r}(x,t)}{t}}.$$</div>
+      <p>Used alone, this classifier sampler targets the Boltzmann marginal path $\pi_t$:</p>
+      <div class="eq amber">$$\mathrm dX=\Big[\bol{v^\pi_t(X)}+\tfrac{\sigma_t^2}{2}\bol{s^\pi_t(X)}\Big]\mathrm dt+\sigma_t\,\mathrm dW,\qquad X_0\sim\rho_0.$$</div>
+      <p>Inside EBCG, it is not used as a standalone generator; it contributes $\lambda\bol{v^\pi_t}$ and $\lambda\bol{s^\pi_t}$ to the tilted predictor.</p>
       <details>
         <summary>Why the reward appears in the score</summary>
         <div class="detail-body">
@@ -382,6 +493,41 @@
     <section>
       <div class="section-head"><span class="section-no">03</span><h2>Predictor</h2></div>
       <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
+      <figure class="transport-figure" aria-label="Tilted predictor transport diagram">
+        <svg viewBox="0 0 720 220" role="img">
+          <defs>
+            <marker id="arrowMix" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
+            </marker>
+          </defs>
+          <rect x="0" y="0" width="720" height="220" fill="#f8fafc"/>
+          <text class="mono" x="48" y="35">rho0</text>
+          <text class="mono" x="305" y="35">rho_t proportional p_t pi_t^lambda</text>
+          <text class="mono" x="600" y="35">rho1</text>
+          <g opacity="0.8">
+            <circle cx="92" cy="112" r="38" fill="#2f5aa8" opacity="0.14"/>
+            <circle cx="92" cy="112" r="22" fill="#bd6526" opacity="0.12"/>
+          </g>
+          <g>
+            <path d="M150 105 C238 65, 312 73, 382 102 S506 150, 586 118" fill="none" stroke="#15181d" stroke-width="3" marker-end="url(#arrowMix)"/>
+            <path d="M150 124 C238 150, 314 140, 386 117 S506 84, 590 94" fill="none" stroke="#15181d" stroke-width="2" opacity="0.46" marker-end="url(#arrowMix)"/>
+          </g>
+          <g opacity="0.85">
+            <ellipse cx="348" cy="102" rx="50" ry="28" fill="#2f5aa8" opacity="0.13" transform="rotate(-12 348 102)"/>
+            <ellipse cx="386" cy="123" rx="42" ry="24" fill="#bd6526" opacity="0.15" transform="rotate(20 386 123)"/>
+            <path d="M306 124 C333 92, 382 88, 420 112" fill="none" stroke="#2f5aa8" stroke-width="2" opacity="0.55"/>
+            <path d="M314 140 C350 118, 392 119, 430 136" fill="none" stroke="#bd6526" stroke-width="2" opacity="0.55"/>
+          </g>
+          <g>
+            <ellipse cx="588" cy="94" rx="44" ry="23" fill="#2f5aa8" opacity="0.16"/>
+            <ellipse cx="616" cy="122" rx="38" ry="21" fill="#bd6526" opacity="0.2"/>
+            <ellipse cx="562" cy="134" rx="31" ry="17" fill="#2f5aa8" opacity="0.12"/>
+          </g>
+          <text x="218" y="174">assemble v_tilde = v^p + lambda v^pi</text>
+          <text x="218" y="195">drift = v_tilde + (sigma_t^2 / 2) s_tilde</text>
+        </svg>
+        <p class="caption">The predictor transports along the geometric product path. Velocity carries mass forward; the score supplies the diffusion drift correction.</p>
+      </figure>
       <div class="eq">$$\mathrm dX=\Big[\,\tilde v_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
       <div class="eq">$$\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
       <details>
@@ -396,6 +542,50 @@
     <section>
       <div class="section-head"><span class="section-no">04</span><h2>Corrector</h2></div>
       <p>Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
+      <figure class="transport-figure" aria-label="Corrector transport diagram">
+        <svg viewBox="0 0 720 230" role="img">
+          <defs>
+            <marker id="arrowCorr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
+            </marker>
+          </defs>
+          <rect x="0" y="0" width="720" height="230" fill="#f8fafc"/>
+          <text class="mono" x="48" y="34">predictor particles</text>
+          <text class="mono" x="292" y="34">correct at frozen t</text>
+          <text class="mono" x="555" y="34">rho_t pinned</text>
+          <g opacity="0.92">
+            <circle cx="82" cy="88" r="4" fill="#2f5aa8"/>
+            <circle cx="112" cy="104" r="4" fill="#bd6526"/>
+            <circle cx="96" cy="136" r="4" fill="#2f5aa8"/>
+            <circle cx="137" cy="126" r="4" fill="#bd6526"/>
+            <circle cx="122" cy="74" r="4" fill="#2f5aa8"/>
+            <circle cx="64" cy="120" r="4" fill="#bd6526"/>
+          </g>
+          <path d="M166 106 C221 92, 257 94, 306 112" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
+          <path d="M166 132 C220 153, 258 154, 306 137" fill="none" stroke="#15181d" stroke-width="2" opacity="0.45" marker-end="url(#arrowCorr)"/>
+          <g>
+            <rect x="316" y="62" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
+            <text x="334" y="87">Langevin</text>
+            <text class="mono" x="334" y="106">move by s_tilde</text>
+            <rect x="316" y="135" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
+            <text x="334" y="160">FKC / SMC</text>
+            <text class="mono" x="334" y="179">weight + resample</text>
+          </g>
+          <path d="M450 92 C492 86, 520 86, 558 94" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
+          <path d="M450 164 C492 175, 522 168, 560 142" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
+          <g>
+            <ellipse cx="600" cy="112" rx="56" ry="32" fill="#2f5aa8" opacity="0.12"/>
+            <ellipse cx="620" cy="120" rx="38" ry="24" fill="#bd6526" opacity="0.16"/>
+            <circle cx="582" cy="96" r="4" fill="#2f5aa8"/>
+            <circle cx="606" cy="106" r="6" fill="#bd6526"/>
+            <circle cx="626" cy="126" r="5" fill="#bd6526"/>
+            <circle cx="592" cy="134" r="4" fill="#2f5aa8"/>
+            <circle cx="646" cy="108" r="3" fill="#2f5aa8"/>
+          </g>
+          <text x="178" y="206">corrector removes product-path mismatch at each t</text>
+        </svg>
+        <p class="caption">Langevin changes particle positions using the tilted score. FKC keeps the predictor path but changes particle weights and resamples.</p>
+      </figure>
       <h3 class="tag">Langevin</h3>
       <div class="eq">$$X\;\leftarrow\;X+\delta\,\tilde s_t(X)+\sqrt{2\delta}\;\xi,\qquad \xi\sim\mathcal N(0,I).$$</div>
       <p>The stationary distribution is $\rho_t$ because the drift is $\tilde s_t=\nabla\log\rho_t$. It is particle-wise and exact in the infinite-corrector-step limit.</p>
@@ -436,8 +626,8 @@
       <div class="section-head"><span class="section-no">05</span><h2>Generation Algorithm</h2></div>
       <p><strong>Input.</strong> Learned $\dat{(v^p,s^p)}$, learned $\bol{(v^\pi,s^\pi)}$, tilt $\lambda$, steps $N$, diffusion $\sigma_t$, and corrector choice.</p>
       <ol>
-        <li>Train the Boltzmann expert by Flow Sampling: regress $\bol{\hat x_1^\pi}$ and $\bol{\widehat{\nabla r}}$, then read $\bol{v^\pi_t}$ and $\bol{s^\pi_t=\widehat{\nabla r}/t}$.</li>
-        <li>Train the SI data expert to expose $\dat{v^p_t}$ and $\dat{s^p_t}$.</li>
+        <li>Train the Boltzmann classifier by Flow Sampling: regress $\bol{\hat x_1^\pi}$ and $\bol{\widehat{\nabla r}}$, then read $\bol{v^\pi_t}$ and $\bol{s^\pi_t=\widehat{\nabla r}/t}$.</li>
+        <li>Train the SI data model to expose $\dat{v^p_t}$ and $\dat{s^p_t}$.</li>
         <li>Sample the prior: $X\sim\rho_0$.</li>
         <li>Evaluate heads and assemble $\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t}$ and $\tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}$.</li>
         <li>Predictor step: $X\mathrel{+}=[\tilde v_t+\tfrac{\sigma_t^2}{2}\tilde s_t]\Delta t+\sigma_t\sqrt{\Delta t}\xi$.</li>
