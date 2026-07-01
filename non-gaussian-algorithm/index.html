@@ -246,6 +246,20 @@
       line-height: 1.5;
     }
 
+    .figure-math {
+      display: grid;
+      gap: 7px;
+      padding: 11px 13px;
+      border-top: 1px solid var(--rule);
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .figure-math .katex-display {
+      margin: 0;
+      padding: 0;
+      font-size: 0.92em;
+    }
+
     .katex-display {
       overflow-x: auto;
       overflow-y: hidden;
@@ -403,9 +417,9 @@
             </marker>
           </defs>
           <rect x="0" y="0" width="720" height="210" fill="#f8fafc"/>
-          <text class="mono" x="46" y="35">prior p0</text>
-          <text class="mono" x="310" y="35">Xt = tX1 + (1-t)X0 + gamma_t Z</text>
-          <text class="mono" x="596" y="35">data p1</text>
+          <text class="mono" x="46" y="35">prior</text>
+          <text class="mono" x="318" y="35">noisy interpolant</text>
+          <text class="mono" x="596" y="35">data</text>
           <circle cx="92" cy="112" r="40" fill="url(#dataBlobA)"/>
           <circle cx="92" cy="112" r="23" fill="#2f5aa8" opacity="0.18"/>
           <ellipse cx="600" cy="88" rx="42" ry="25" fill="url(#dataBlobA)" transform="rotate(-18 600 88)"/>
@@ -417,9 +431,13 @@
           <circle cx="312" cy="92" r="20" fill="none" stroke="#8aa6d8" stroke-width="2"/>
           <circle cx="354" cy="112" r="28" fill="none" stroke="#8aa6d8" stroke-width="2" opacity="0.8"/>
           <circle cx="402" cy="104" r="18" fill="none" stroke="#8aa6d8" stroke-width="2" opacity="0.65"/>
-          <text x="267" y="166">learn v^p_t by velocity loss</text>
-          <text x="267" y="185">learn s^p_t from denoiser</text>
+          <text x="267" y="166">velocity loss</text>
+          <text x="267" y="185">denoiser score</text>
         </svg>
+        <div class="figure-math">
+          $$X_t=tX_1+(1-t)X_0+\gamma_tZ,\qquad X_0\sim\rho_0,\;X_1\sim p.$$
+          $$\dat{v^p_t=\mathbb E[\dot X_t\mid X_t]},\qquad \dat{s^p_t=\nabla\log p_t}.$$
+        </div>
         <p class="caption">SI transports prior samples toward the data marginal while exposing both currencies needed later: a continuity velocity and a score.</p>
       </figure>
       <div class="eq data">$$\dat{v^p_t(x)=\mathbb E[\dot X_t\mid X_t=x]},\qquad \dat{s^p_t(x)=\nabla\log p_t(x)}.$$</div>
@@ -451,9 +469,9 @@
             </marker>
           </defs>
           <rect x="0" y="0" width="720" height="210" fill="#fff9f2"/>
-          <text class="mono" x="42" y="35">source X0 ~ rho0</text>
+          <text class="mono" x="42" y="35">source</text>
           <text class="mono" x="287" y="35">energy pushes signal</text>
-          <text class="mono" x="558" y="35">Boltzmann pi</text>
+          <text class="mono" x="558" y="35">Boltzmann</text>
           <circle cx="88" cy="112" r="38" fill="none" stroke="#bd6526" stroke-opacity="0.22" stroke-width="2"/>
           <circle cx="118" cy="120" r="18" fill="none" stroke="#bd6526" stroke-opacity="0.28" stroke-width="2"/>
           <path d="M154 124 C246 120, 309 92, 399 76 S523 70, 598 86" fill="none" stroke="#bd6526" stroke-width="3" marker-end="url(#arrowBoltz)"/>
@@ -462,9 +480,13 @@
           <ellipse cx="602" cy="84" rx="48" ry="24" fill="url(#boltzBlobA)" transform="rotate(-15 602 84)"/>
           <ellipse cx="610" cy="124" rx="35" ry="20" fill="url(#boltzBlobA)" transform="rotate(20 610 124)"/>
           <path d="M305 138 l42 -48" stroke="#bd6526" stroke-width="4" marker-end="url(#arrowBoltz)"/>
-          <text x="262" y="162">target u_{t|1}: transport + gamma grad r</text>
-          <text x="262" y="184">read v^pi_t and s^pi_t from two heads</text>
+          <text x="262" y="162">conditional drift target</text>
+          <text x="262" y="184">two heads: endpoint + reward force</text>
         </svg>
+        <div class="figure-math">
+          $$\bol{u^\pi_{t\mid1}(X_t)=(X_1-X_0)+\gamma\nabla r(X_1)},\qquad X_0\sim\rho_0.$$
+          $$\bol{v^\pi_t=\frac{\hat x^\pi_1-X_t}{1-t}},\qquad \bol{s^\pi_t=\frac{\widehat{\nabla r}}{t}}.$$
+        </div>
         <p class="caption">Flow Sampling uses reward gradients to move prior mass toward the unnormalized Boltzmann density; the learned classifier field later supplies guidance.</p>
       </figure>
       <div class="eq amber">$$\bol{u_{t\mid1}^{\pi}(X_t)=(X_1-X_0)+\gamma\,\nabla r(X_1)},\qquad \nabla r(X_1)=-\nabla E(X_1)/T.$$</div>
@@ -501,9 +523,9 @@
             </marker>
           </defs>
           <rect x="0" y="0" width="720" height="220" fill="#f8fafc"/>
-          <text class="mono" x="48" y="35">rho0</text>
-          <text class="mono" x="305" y="35">rho_t proportional p_t pi_t^lambda</text>
-          <text class="mono" x="600" y="35">rho1</text>
+          <text class="mono" x="48" y="35">initial</text>
+          <text class="mono" x="312" y="35">tilted path</text>
+          <text class="mono" x="600" y="35">target</text>
           <g opacity="0.8">
             <circle cx="92" cy="112" r="38" fill="#2f5aa8" opacity="0.14"/>
             <circle cx="92" cy="112" r="22" fill="#bd6526" opacity="0.12"/>
@@ -523,9 +545,15 @@
             <ellipse cx="616" cy="122" rx="38" ry="21" fill="#bd6526" opacity="0.2"/>
             <ellipse cx="562" cy="134" rx="31" ry="17" fill="#2f5aa8" opacity="0.12"/>
           </g>
-          <text x="218" y="174">assemble v_tilde = v^p + lambda v^pi</text>
-          <text x="218" y="195">drift = v_tilde + (sigma_t^2 / 2) s_tilde</text>
+          <text x="218" y="174">assemble tilted velocity and score</text>
+          <text x="218" y="195">use drift-SDE predictor</text>
         </svg>
+        <div class="figure-math">
+          $$\rho_t\propto\dat{p_t}\bol{\pi_t}^{\lambda},\qquad
+          \tilde v_t=\dat{v^p_t}+\lambda\bol{v^\pi_t},\qquad
+          \tilde s_t=\dat{s^p_t}+\lambda\bol{s^\pi_t}.$$
+          $$\mathrm dX=\Big[\tilde v_t+\tfrac{\sigma_t^2}{2}\tilde s_t\Big]\mathrm dt+\sigma_t\,\mathrm dW.$$
+        </div>
         <p class="caption">The predictor transports along the geometric product path. Velocity carries mass forward; the score supplies the diffusion drift correction.</p>
       </figure>
       <div class="eq">$$\mathrm dX=\Big[\,\tilde v_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
@@ -552,7 +580,7 @@
           <rect x="0" y="0" width="720" height="230" fill="#f8fafc"/>
           <text class="mono" x="48" y="34">predictor particles</text>
           <text class="mono" x="292" y="34">correct at frozen t</text>
-          <text class="mono" x="555" y="34">rho_t pinned</text>
+          <text class="mono" x="555" y="34">target pinned</text>
           <g opacity="0.92">
             <circle cx="82" cy="88" r="4" fill="#2f5aa8"/>
             <circle cx="112" cy="104" r="4" fill="#bd6526"/>
@@ -564,12 +592,12 @@
           <path d="M166 106 C221 92, 257 94, 306 112" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
           <path d="M166 132 C220 153, 258 154, 306 137" fill="none" stroke="#15181d" stroke-width="2" opacity="0.45" marker-end="url(#arrowCorr)"/>
           <g>
-            <rect x="316" y="62" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
-            <text x="334" y="87">Langevin</text>
-            <text class="mono" x="334" y="106">move by s_tilde</text>
-            <rect x="316" y="135" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
-            <text x="334" y="160">FKC / SMC</text>
-            <text class="mono" x="334" y="179">weight + resample</text>
+          <rect x="316" y="62" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
+          <text x="334" y="87">Langevin</text>
+            <text class="mono" x="334" y="106">move particles</text>
+          <rect x="316" y="135" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
+          <text x="334" y="160">FKC / SMC</text>
+          <text class="mono" x="334" y="179">weight + resample</text>
           </g>
           <path d="M450 92 C492 86, 520 86, 558 94" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
           <path d="M450 164 C492 175, 522 168, 560 142" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
@@ -582,8 +610,13 @@
             <circle cx="592" cy="134" r="4" fill="#2f5aa8"/>
             <circle cx="646" cy="108" r="3" fill="#2f5aa8"/>
           </g>
-          <text x="178" y="206">corrector removes product-path mismatch at each t</text>
+          <text x="178" y="206">pin the marginal at each frozen time</text>
         </svg>
+        <div class="figure-math">
+          $$\text{Langevin:}\quad X\leftarrow X+\delta\tilde s_t(X)+\sqrt{2\delta}\xi.$$
+          $$\text{FKC:}\quad w_t^{(k)}\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\Delta t,\qquad
+          \mathrm{resample}\propto e^{w_t^{(k)}}.$$
+        </div>
         <p class="caption">Langevin changes particle positions using the tilted score. FKC keeps the predictor path but changes particle weights and resamples.</p>
       </figure>
       <h3 class="tag">Langevin</h3>
