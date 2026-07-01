@@ -108,6 +108,27 @@
       font-size: 0.93rem;
     }
 
+    @media (min-width: 1440px) {
+      .legend {
+        position: fixed;
+        top: 24px;
+        right: max(24px, calc((100vw - 790px) / 2 - 284px));
+        width: 260px;
+        max-height: calc(100vh - 48px);
+        margin: 0;
+        overflow: auto;
+      }
+
+      .legend-grid {
+        grid-template-columns: 1fr;
+        gap: 3px 0;
+      }
+
+      .legend-desc + .legend-key {
+        margin-top: 8px;
+      }
+    }
+
     .swatch {
       display: inline-block;
       width: 0.75rem;
