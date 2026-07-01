@@ -516,45 +516,55 @@
       <div class="section-head"><span class="section-no">03</span><h2>Predictor</h2></div>
       <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
       <figure class="transport-figure" aria-label="Tilted predictor transport diagram">
-        <svg viewBox="0 0 720 220" role="img">
+        <svg viewBox="0 0 720 255" role="img">
           <defs>
-            <marker id="arrowMix" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <marker id="arrowVel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
             </marker>
+            <marker id="arrowScore" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#8b929c"/>
+            </marker>
           </defs>
-          <rect x="0" y="0" width="720" height="220" fill="#f8fafc"/>
-          <text class="mono" x="48" y="35">initial</text>
-          <text class="mono" x="312" y="35">tilted path</text>
-          <text class="mono" x="600" y="35">target</text>
-          <g opacity="0.8">
-            <circle cx="92" cy="112" r="38" fill="#2f5aa8" opacity="0.14"/>
-            <circle cx="92" cy="112" r="22" fill="#bd6526" opacity="0.12"/>
+          <rect x="0" y="0" width="720" height="255" fill="#fbfcfd"/>
+          <text class="mono" x="47" y="34">rho_0</text>
+          <text class="mono" x="273" y="34">rho_t ∝ p_t · pi_t^λ</text>
+          <text class="mono" x="590" y="34">rho_1</text>
+
+          <circle cx="84" cy="132" r="37" fill="#15181d" opacity="0.13"/>
+          <path d="M98 132 L82 132" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
+
+          <ellipse cx="335" cy="117" rx="67" ry="38" fill="#2f5aa8" opacity="0.18" transform="rotate(-12 335 117)"/>
+          <ellipse cx="382" cy="145" rx="61" ry="34" fill="#bd6526" opacity="0.2" transform="rotate(18 382 145)"/>
+          <ellipse cx="364" cy="132" rx="48" ry="25" fill="#15181d" opacity="0.2" transform="rotate(5 364 132)"/>
+          <path d="M348 116 L368 128" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
+
+          <ellipse cx="606" cy="132" rx="55" ry="28" fill="#15181d" opacity="0.2" transform="rotate(10 606 132)"/>
+          <ellipse cx="586" cy="118" rx="52" ry="27" fill="#2f5aa8" opacity="0.14" transform="rotate(-12 586 118)"/>
+          <ellipse cx="624" cy="142" rx="48" ry="25" fill="#bd6526" opacity="0.16" transform="rotate(15 624 142)"/>
+          <path d="M625 132 L604 132" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
+
+          <g stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowVel)">
+            <path d="M157 90 L188 90"/>
+            <path d="M204 112 L238 108"/>
+            <path d="M152 138 L187 132"/>
+            <path d="M450 104 L488 108"/>
+            <path d="M430 134 L471 136"/>
+            <path d="M464 166 L504 158"/>
           </g>
-          <g>
-            <path d="M150 105 C238 65, 312 73, 382 102 S506 150, 586 118" fill="none" stroke="#15181d" stroke-width="3" marker-end="url(#arrowMix)"/>
-            <path d="M150 124 C238 150, 314 140, 386 117 S506 84, 590 94" fill="none" stroke="#15181d" stroke-width="2" opacity="0.46" marker-end="url(#arrowMix)"/>
+          <text class="mono" x="224" y="82">ũ_t</text>
+          <text class="mono" x="346" y="102">s̃_t</text>
+          <text class="mono" x="620" y="118">s̃_t</text>
+
+          <g transform="translate(490 24)">
+            <rect x="0" y="0" width="188" height="58" rx="7" fill="#ffffff" stroke="#d4dae1"/>
+            <path d="M13 19 L48 19" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowVel)"/>
+            <text class="mono" x="58" y="23">velocity ũ_t</text>
+            <text class="mono" x="58" y="39">carries mass</text>
+            <path d="M13 47 L48 47" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
+            <text class="mono" x="58" y="51">score s̃_t</text>
           </g>
-          <g opacity="0.85">
-            <ellipse cx="348" cy="102" rx="50" ry="28" fill="#2f5aa8" opacity="0.13" transform="rotate(-12 348 102)"/>
-            <ellipse cx="386" cy="123" rx="42" ry="24" fill="#bd6526" opacity="0.15" transform="rotate(20 386 123)"/>
-            <path d="M306 124 C333 92, 382 88, 420 112" fill="none" stroke="#2f5aa8" stroke-width="2" opacity="0.55"/>
-            <path d="M314 140 C350 118, 392 119, 430 136" fill="none" stroke="#bd6526" stroke-width="2" opacity="0.55"/>
-          </g>
-          <g>
-            <ellipse cx="588" cy="94" rx="44" ry="23" fill="#2f5aa8" opacity="0.16"/>
-            <ellipse cx="616" cy="122" rx="38" ry="21" fill="#bd6526" opacity="0.2"/>
-            <ellipse cx="562" cy="134" rx="31" ry="17" fill="#2f5aa8" opacity="0.12"/>
-          </g>
-          <text x="218" y="174">assemble tilted velocity and score</text>
-          <text x="218" y="195">use drift-SDE predictor</text>
         </svg>
-        <div class="figure-math">
-          $$\rho_t\propto\dat{p_t}\bol{\pi_t}^{\lambda},\qquad
-          \tilde v_t=\dat{v^p_t}+\lambda\bol{v^\pi_t},\qquad
-          \tilde s_t=\dat{s^p_t}+\lambda\bol{s^\pi_t}.$$
-          $$\mathrm dX=\Big[\tilde v_t+\tfrac{\sigma_t^2}{2}\tilde s_t\Big]\mathrm dt+\sigma_t\,\mathrm dW.$$
-        </div>
-        <p class="caption">The predictor transports along the geometric product path. Velocity carries mass forward; the score supplies the diffusion drift correction.</p>
+        <p class="caption">Velocity carries mass along the product path. Score adds the diffusion correction. The transport is an approximation, and the corrector fixes the remainder.</p>
       </figure>
       <div class="eq">$$\mathrm dX=\Big[\,\tilde v_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
       <div class="eq">$$\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
@@ -571,53 +581,82 @@
       <div class="section-head"><span class="section-no">04</span><h2>Corrector</h2></div>
       <p>Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
       <figure class="transport-figure" aria-label="Corrector transport diagram">
-        <svg viewBox="0 0 720 230" role="img">
+        <svg viewBox="0 0 720 290" role="img">
           <defs>
             <marker id="arrowCorr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
             </marker>
           </defs>
-          <rect x="0" y="0" width="720" height="230" fill="#f8fafc"/>
-          <text class="mono" x="48" y="34">predictor particles</text>
-          <text class="mono" x="292" y="34">correct at frozen t</text>
-          <text class="mono" x="555" y="34">target pinned</text>
-          <g opacity="0.92">
-            <circle cx="82" cy="88" r="4" fill="#2f5aa8"/>
-            <circle cx="112" cy="104" r="4" fill="#bd6526"/>
-            <circle cx="96" cy="136" r="4" fill="#2f5aa8"/>
-            <circle cx="137" cy="126" r="4" fill="#bd6526"/>
-            <circle cx="122" cy="74" r="4" fill="#2f5aa8"/>
-            <circle cx="64" cy="120" r="4" fill="#bd6526"/>
+          <rect x="0" y="0" width="720" height="290" fill="#fbfcfd"/>
+          <text class="mono" x="42" y="36">same predictor</text>
+          <text class="mono" x="244" y="58">Langevin — move particles by s̃_t</text>
+          <text class="mono" x="244" y="178">FKC — weight, then resample</text>
+          <text class="mono" x="596" y="36">rho_t</text>
+
+          <g fill="#6f7782">
+            <circle cx="68" cy="95" r="4"/>
+            <circle cx="96" cy="78" r="4"/>
+            <circle cx="119" cy="98" r="4"/>
+            <circle cx="86" cy="126" r="4"/>
+            <circle cx="134" cy="132" r="4"/>
+            <circle cx="55" cy="140" r="4"/>
+            <circle cx="112" cy="150" r="4"/>
+            <circle cx="146" cy="82" r="4"/>
           </g>
-          <path d="M166 106 C221 92, 257 94, 306 112" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
-          <path d="M166 132 C220 153, 258 154, 306 137" fill="none" stroke="#15181d" stroke-width="2" opacity="0.45" marker-end="url(#arrowCorr)"/>
-          <g>
-          <rect x="316" y="62" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
-          <text x="334" y="87">Langevin</text>
-            <text class="mono" x="334" y="106">move particles</text>
-          <rect x="316" y="135" width="122" height="58" rx="8" fill="#ffffff" stroke="#d4dae1"/>
-          <text x="334" y="160">FKC / SMC</text>
-          <text class="mono" x="334" y="179">weight + resample</text>
+
+          <path d="M165 113 C195 92, 210 80, 231 73" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
+          <path d="M165 122 C198 144, 212 162, 231 173" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
+
+          <g fill="none" stroke="#15181d" stroke-width="1.7" opacity="0.88" marker-end="url(#arrowCorr)">
+            <path d="M276 92 L316 78"/>
+            <path d="M304 75 L345 78"/>
+            <path d="M326 97 L366 88"/>
+            <path d="M300 122 L338 112"/>
+            <path d="M350 119 L386 104"/>
           </g>
-          <path d="M450 92 C492 86, 520 86, 558 94" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
-          <path d="M450 164 C492 175, 522 168, 560 142" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowCorr)"/>
-          <g>
-            <ellipse cx="600" cy="112" rx="56" ry="32" fill="#2f5aa8" opacity="0.12"/>
-            <ellipse cx="620" cy="120" rx="38" ry="24" fill="#bd6526" opacity="0.16"/>
-            <circle cx="582" cy="96" r="4" fill="#2f5aa8"/>
-            <circle cx="606" cy="106" r="6" fill="#bd6526"/>
-            <circle cx="626" cy="126" r="5" fill="#bd6526"/>
-            <circle cx="592" cy="134" r="4" fill="#2f5aa8"/>
-            <circle cx="646" cy="108" r="3" fill="#2f5aa8"/>
+          <g fill="#6f7782">
+            <circle cx="276" cy="92" r="4"/>
+            <circle cx="304" cy="75" r="4"/>
+            <circle cx="326" cy="97" r="4"/>
+            <circle cx="300" cy="122" r="4"/>
+            <circle cx="350" cy="119" r="4"/>
           </g>
-          <text x="178" y="206">pin the marginal at each frozen time</text>
+          <ellipse cx="604" cy="92" rx="58" ry="32" fill="#15181d" opacity="0.12"/>
+          <g fill="#6f7782">
+            <circle cx="585" cy="87" r="4"/>
+            <circle cx="606" cy="75" r="4"/>
+            <circle cx="628" cy="94" r="4"/>
+            <circle cx="598" cy="112" r="4"/>
+            <circle cx="619" cy="116" r="4"/>
+          </g>
+          <path d="M405 101 C468 84, 514 81, 552 88" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
+
+          <g fill="#6f7782">
+            <circle cx="276" cy="207" r="3"/>
+            <circle cx="305" cy="190" r="8"/>
+            <circle cx="328" cy="210" r="4"/>
+            <circle cx="295" cy="238" r="10"/>
+            <circle cx="344" cy="244" r="3"/>
+            <circle cx="265" cy="252" r="5"/>
+            <circle cx="322" cy="262" r="7"/>
+            <circle cx="356" cy="194" r="3"/>
+          </g>
+          <g transform="translate(390 223)">
+            <circle cx="0" cy="0" r="3" fill="#6f7782"/>
+            <circle cx="21" cy="0" r="8" fill="#6f7782"/>
+            <text class="mono" x="36" y="4">point size = weight</text>
+          </g>
+          <path d="M405 224 C468 210, 514 205, 552 214" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
+          <ellipse cx="604" cy="218" rx="58" ry="32" fill="#15181d" opacity="0.12"/>
+          <g fill="#6f7782">
+            <circle cx="588" cy="206" r="8"/>
+            <circle cx="612" cy="210" r="8"/>
+            <circle cx="596" cy="232" r="10"/>
+            <circle cx="630" cy="226" r="7"/>
+            <circle cx="574" cy="224" r="5"/>
+          </g>
         </svg>
-        <div class="figure-math">
-          $$\text{Langevin:}\quad X\leftarrow X+\delta\tilde s_t(X)+\sqrt{2\delta}\xi.$$
-          $$\text{FKC:}\quad w_t^{(k)}\leftarrow w_t^{(k)}+g_t(x_t^{(k)})\Delta t,\qquad
-          \mathrm{resample}\propto e^{w_t^{(k)}}.$$
-        </div>
-        <p class="caption">Langevin changes particle positions using the tilted score. FKC keeps the predictor path but changes particle weights and resamples.</p>
+        <p class="caption">Both correctors start from the same predictor particles. Langevin moves particles. FKC reweights them and resamples. Both land on the same $\rho_t$.</p>
       </figure>
       <h3 class="tag">Langevin</h3>
       <div class="eq">$$X\;\leftarrow\;X+\delta\,\tilde s_t(X)+\sqrt{2\delta}\;\xi,\qquad \xi\sim\mathcal N(0,I).$$</div>
