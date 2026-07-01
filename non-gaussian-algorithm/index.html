@@ -515,56 +515,87 @@
     <section>
       <div class="section-head"><span class="section-no">03</span><h2>Predictor</h2></div>
       <p>The drift-SDE predictor uses the tilt velocity, not the data velocity alone. This transport is what makes the FKC weight divergence-free.</p>
-      <figure class="transport-figure" aria-label="Tilted predictor transport diagram">
-        <svg viewBox="0 0 720 255" role="img">
+      <figure class="transport-figure" aria-label="Predictor-corrector transport diagram">
+        <svg viewBox="0 0 720 360" role="img">
           <defs>
-            <marker id="arrowVel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <marker id="arrowPC" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
             </marker>
-            <marker id="arrowScore" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L7,3 L0,6 Z" fill="#8b929c"/>
-            </marker>
           </defs>
-          <rect x="0" y="0" width="720" height="255" fill="#fbfcfd"/>
-          <text class="mono" x="47" y="34">rho_0</text>
-          <text class="mono" x="273" y="34">rho_t ∝ p_t · pi_t^λ</text>
-          <text class="mono" x="590" y="34">rho_1</text>
+          <rect x="0" y="0" width="720" height="360" fill="#fbfcfd"/>
+          <text class="mono" x="42" y="34">start particles</text>
+          <text class="mono" x="246" y="34">predictor step</text>
+          <text class="mono" x="454" y="34">off target</text>
+          <text class="mono" x="570" y="34">target marginal</text>
 
-          <circle cx="84" cy="132" r="37" fill="#15181d" opacity="0.13"/>
-          <path d="M98 132 L82 132" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
-
-          <ellipse cx="335" cy="117" rx="67" ry="38" fill="#2f5aa8" opacity="0.18" transform="rotate(-12 335 117)"/>
-          <ellipse cx="382" cy="145" rx="61" ry="34" fill="#bd6526" opacity="0.2" transform="rotate(18 382 145)"/>
-          <ellipse cx="364" cy="132" rx="48" ry="25" fill="#15181d" opacity="0.2" transform="rotate(5 364 132)"/>
-          <path d="M348 116 L368 128" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
-
-          <ellipse cx="606" cy="132" rx="55" ry="28" fill="#15181d" opacity="0.2" transform="rotate(10 606 132)"/>
-          <ellipse cx="586" cy="118" rx="52" ry="27" fill="#2f5aa8" opacity="0.14" transform="rotate(-12 586 118)"/>
-          <ellipse cx="624" cy="142" rx="48" ry="25" fill="#bd6526" opacity="0.16" transform="rotate(15 624 142)"/>
-          <path d="M625 132 L604 132" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
-
-          <g stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowVel)">
-            <path d="M157 90 L188 90"/>
-            <path d="M204 112 L238 108"/>
-            <path d="M152 138 L187 132"/>
-            <path d="M450 104 L488 108"/>
-            <path d="M430 134 L471 136"/>
-            <path d="M464 166 L504 158"/>
+          <g fill="#6f7782">
+            <circle cx="58" cy="108" r="4"/>
+            <circle cx="86" cy="88" r="4"/>
+            <circle cx="112" cy="105" r="4"/>
+            <circle cx="75" cy="138" r="4"/>
+            <circle cx="132" cy="135" r="4"/>
+            <circle cx="52" cy="154" r="4"/>
+            <circle cx="104" cy="160" r="4"/>
+            <circle cx="138" cy="76" r="4"/>
           </g>
-          <text class="mono" x="224" y="82">ũ_t</text>
-          <text class="mono" x="346" y="102">s̃_t</text>
-          <text class="mono" x="620" y="118">s̃_t</text>
 
-          <g transform="translate(490 24)">
-            <rect x="0" y="0" width="188" height="58" rx="7" fill="#ffffff" stroke="#d4dae1"/>
-            <path d="M13 19 L48 19" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowVel)"/>
-            <text class="mono" x="58" y="23">velocity ũ_t</text>
-            <text class="mono" x="58" y="39">carries mass</text>
-            <path d="M13 47 L48 47" stroke="#8b929c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowScore)"/>
-            <text class="mono" x="58" y="51">score s̃_t</text>
+          <rect x="222" y="66" width="152" height="108" rx="10" fill="#ffffff" stroke="#d4dae1"/>
+          <text class="mono" x="242" y="92">PREDICTOR</text>
+          <text x="242" y="120">move all particles</text>
+          <text x="242" y="142">by transport field</text>
+          <path d="M154 118 L213 118" stroke="#15181d" stroke-width="2.8" marker-end="url(#arrowPC)"/>
+          <text class="mono" x="166" y="104">drift-SDE</text>
+
+          <g fill="#6f7782">
+            <circle cx="430" cy="91" r="4"/>
+            <circle cx="465" cy="82" r="4"/>
+            <circle cx="490" cy="108" r="4"/>
+            <circle cx="445" cy="134" r="4"/>
+            <circle cx="502" cy="145" r="4"/>
+            <circle cx="420" cy="156" r="4"/>
+            <circle cx="471" cy="166" r="4"/>
+            <circle cx="516" cy="84" r="4"/>
           </g>
+          <ellipse cx="602" cy="122" rx="60" ry="36" fill="#15181d" opacity="0.12"/>
+          <path d="M381 118 L410 118" stroke="#15181d" stroke-width="2.8" marker-end="url(#arrowPC)"/>
+          <text class="mono" x="420" y="54">close, but not pinned</text>
+          <text class="mono" x="586" y="122">rho_t</text>
+
+          <path d="M486 178 C456 199, 430 216, 390 224" fill="none" stroke="#15181d" stroke-width="2.5" marker-end="url(#arrowPC)"/>
+          <text class="mono" x="393" y="206">correct at same time</text>
+
+          <rect x="58" y="220" width="278" height="92" rx="10" fill="#ffffff" stroke="#d4dae1"/>
+          <text class="mono" x="76" y="247">LANGEVIN CORRECTOR</text>
+          <text x="76" y="274">moves particle positions</text>
+          <text x="76" y="295">toward target marginal</text>
+          <g fill="#6f7782">
+            <circle cx="258" cy="247" r="4"/>
+            <circle cx="284" cy="236" r="4"/>
+            <circle cx="304" cy="260" r="4"/>
+            <circle cx="272" cy="281" r="4"/>
+            <circle cx="314" cy="288" r="4"/>
+          </g>
+          <g stroke="#15181d" stroke-width="1.8" marker-end="url(#arrowPC)">
+            <path d="M258 247 L278 241"/>
+            <path d="M284 236 L303 239"/>
+            <path d="M272 281 L292 272"/>
+          </g>
+
+          <rect x="384" y="220" width="278" height="92" rx="10" fill="#ffffff" stroke="#d4dae1"/>
+          <text class="mono" x="402" y="247">FKC CORRECTOR</text>
+          <text x="402" y="274">keeps positions</text>
+          <text x="402" y="295">weights and resamples</text>
+          <g fill="#6f7782">
+            <circle cx="576" cy="241" r="3"/>
+            <circle cx="598" cy="238" r="9"/>
+            <circle cx="625" cy="249" r="4"/>
+            <circle cx="586" cy="274" r="10"/>
+            <circle cx="624" cy="280" r="7"/>
+            <circle cx="548" cy="280" r="3"/>
+          </g>
+          <text class="mono" x="458" y="323">size = weight</text>
         </svg>
-        <p class="caption">Velocity carries mass along the product path. Score adds the diffusion correction. The transport is an approximation, and the corrector fixes the remainder.</p>
+        <p class="caption">The predictor moves particles forward and usually lands near, not exactly on, the desired marginal. The corrector fixes that mismatch at the same time step: Langevin moves positions, while FKC changes weights and resamples.</p>
       </figure>
       <div class="eq">$$\mathrm dX=\Big[\,\tilde v_t+\tfrac{\sigma_t^2}{2}\,\tilde s_t\,\Big]\,\mathrm dt+\sigma_t\,\mathrm dW.$$</div>
       <div class="eq">$$\tilde v_t=\dat{v^p_t}+\lambda\,\bol{v^\pi_t},\qquad \tilde s_t=\dat{s^p_t}+\lambda\,\bol{s^\pi_t}.$$</div>
@@ -579,85 +610,7 @@
 
     <section>
       <div class="section-head"><span class="section-no">04</span><h2>Corrector</h2></div>
-      <p>Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
-      <figure class="transport-figure" aria-label="Corrector transport diagram">
-        <svg viewBox="0 0 720 290" role="img">
-          <defs>
-            <marker id="arrowCorr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L8,3 L0,6 Z" fill="#15181d"/>
-            </marker>
-          </defs>
-          <rect x="0" y="0" width="720" height="290" fill="#fbfcfd"/>
-          <text class="mono" x="42" y="36">same predictor</text>
-          <text class="mono" x="244" y="58">Langevin — move particles by s̃_t</text>
-          <text class="mono" x="244" y="178">FKC — weight, then resample</text>
-          <text class="mono" x="596" y="36">rho_t</text>
-
-          <g fill="#6f7782">
-            <circle cx="68" cy="95" r="4"/>
-            <circle cx="96" cy="78" r="4"/>
-            <circle cx="119" cy="98" r="4"/>
-            <circle cx="86" cy="126" r="4"/>
-            <circle cx="134" cy="132" r="4"/>
-            <circle cx="55" cy="140" r="4"/>
-            <circle cx="112" cy="150" r="4"/>
-            <circle cx="146" cy="82" r="4"/>
-          </g>
-
-          <path d="M165 113 C195 92, 210 80, 231 73" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
-          <path d="M165 122 C198 144, 212 162, 231 173" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
-
-          <g fill="none" stroke="#15181d" stroke-width="1.7" opacity="0.88" marker-end="url(#arrowCorr)">
-            <path d="M276 92 L316 78"/>
-            <path d="M304 75 L345 78"/>
-            <path d="M326 97 L366 88"/>
-            <path d="M300 122 L338 112"/>
-            <path d="M350 119 L386 104"/>
-          </g>
-          <g fill="#6f7782">
-            <circle cx="276" cy="92" r="4"/>
-            <circle cx="304" cy="75" r="4"/>
-            <circle cx="326" cy="97" r="4"/>
-            <circle cx="300" cy="122" r="4"/>
-            <circle cx="350" cy="119" r="4"/>
-          </g>
-          <ellipse cx="604" cy="92" rx="58" ry="32" fill="#15181d" opacity="0.12"/>
-          <g fill="#6f7782">
-            <circle cx="585" cy="87" r="4"/>
-            <circle cx="606" cy="75" r="4"/>
-            <circle cx="628" cy="94" r="4"/>
-            <circle cx="598" cy="112" r="4"/>
-            <circle cx="619" cy="116" r="4"/>
-          </g>
-          <path d="M405 101 C468 84, 514 81, 552 88" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
-
-          <g fill="#6f7782">
-            <circle cx="276" cy="207" r="3"/>
-            <circle cx="305" cy="190" r="8"/>
-            <circle cx="328" cy="210" r="4"/>
-            <circle cx="295" cy="238" r="10"/>
-            <circle cx="344" cy="244" r="3"/>
-            <circle cx="265" cy="252" r="5"/>
-            <circle cx="322" cy="262" r="7"/>
-            <circle cx="356" cy="194" r="3"/>
-          </g>
-          <g transform="translate(390 223)">
-            <circle cx="0" cy="0" r="3" fill="#6f7782"/>
-            <circle cx="21" cy="0" r="8" fill="#6f7782"/>
-            <text class="mono" x="36" y="4">point size = weight</text>
-          </g>
-          <path d="M405 224 C468 210, 514 205, 552 214" fill="none" stroke="#15181d" stroke-width="2.4" marker-end="url(#arrowCorr)"/>
-          <ellipse cx="604" cy="218" rx="58" ry="32" fill="#15181d" opacity="0.12"/>
-          <g fill="#6f7782">
-            <circle cx="588" cy="206" r="8"/>
-            <circle cx="612" cy="210" r="8"/>
-            <circle cx="596" cy="232" r="10"/>
-            <circle cx="630" cy="226" r="7"/>
-            <circle cx="574" cy="224" r="5"/>
-          </g>
-        </svg>
-        <p class="caption">Both correctors start from the same predictor particles. Langevin moves particles. FKC reweights them and resamples. Both land on the same $\rho_t$.</p>
-      </figure>
+      <p>The combined diagram above shows the role split: predictor advances the ensemble; corrector pins the ensemble back to $\rho_t$. Both correctors use the same predictor. They differ in how they pin the marginal to $\rho_t$.</p>
       <h3 class="tag">Langevin</h3>
       <div class="eq">$$X\;\leftarrow\;X+\delta\,\tilde s_t(X)+\sqrt{2\delta}\;\xi,\qquad \xi\sim\mathcal N(0,I).$$</div>
       <p>The stationary distribution is $\rho_t$ because the drift is $\tilde s_t=\nabla\log\rho_t$. It is particle-wise and exact in the infinite-corrector-step limit.</p>
