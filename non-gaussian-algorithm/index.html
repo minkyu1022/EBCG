@@ -108,12 +108,24 @@
       font-size: 0.93rem;
     }
 
-    @media (min-width: 1440px) {
+    @media (min-width: 1220px) {
+      .page {
+        width: min(calc(100% - 32px), 1172px);
+        display: grid;
+        grid-template-columns: minmax(0, 790px) 280px;
+        column-gap: 30px;
+        align-items: start;
+      }
+
+      .page > :not(.legend) {
+        grid-column: 1;
+      }
+
       .legend {
-        position: fixed;
-        top: 24px;
-        right: max(24px, calc((100vw - 790px) / 2 - 284px));
-        width: 260px;
+        grid-column: 2;
+        grid-row: 1 / span 20;
+        top: 18px;
+        width: 100%;
         max-height: calc(100vh - 48px);
         margin: 0;
         overflow: auto;
